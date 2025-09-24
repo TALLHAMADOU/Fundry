@@ -38,7 +38,7 @@ class ComposerStaticInit901eddf6b9a1176e2edc99ac9c1f3d02
         'c72349b1fe8d0deeedd3a52e8aa814d8' => __DIR__ . '/..' . '/mockery/mockery/library/helpers.php',
         'ce9671a430e4846b44e1c68c7611f9f5' => __DIR__ . '/..' . '/mockery/mockery/library/Mockery.php',
         'ec07570ca5a812141189b1fa81503674' => __DIR__ . '/..' . '/phpunit/phpunit/src/Framework/Assert/Functions.php',
-        '29011978c1551014ef19dc4a49ee7a6d' => __DIR__ . '/../..' . '/src/helpers.php',
+        '35544da07f4c572ae0d0a9275568278c' => __DIR__ . '/../..' . '/helpers.php',
     );
 
     public static $prefixLengthsPsr4 = array (
@@ -138,6 +138,7 @@ class ComposerStaticInit901eddf6b9a1176e2edc99ac9c1f3d02
         ),
         'H' => 
         array (
+            'Hamadou\\\\Fundry\\\\Tests\\\\' => 24,
             'Hamadou\\\\Fundry\\\\' => 17,
         ),
         'G' => 
@@ -422,6 +423,10 @@ class ComposerStaticInit901eddf6b9a1176e2edc99ac9c1f3d02
         'Illuminate\\' => 
         array (
             0 => __DIR__ . '/..' . '/laravel/framework/src/Illuminate',
+        ),
+        'Hamadou\\\\Fundry\\\\Tests\\\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/tests',
         ),
         'Hamadou\\\\Fundry\\\\' => 
         array (
