@@ -5,22 +5,35 @@ namespace Orchestra\Testbench\Foundation;
 use Illuminate\Console\Application as Artisan;
 use Illuminate\Console\Scheduling\ScheduleListCommand;
 use Illuminate\Console\Signals;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Database\Schema\Builder as SchemaBuilder;
+use Illuminate\Foundation\Bootstrap\HandleExceptions;
 use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
+use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Foundation\Console\ChannelListCommand;
 use Illuminate\Foundation\Console\RouteListCommand;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Http\Middleware\TrustHosts;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Mail\Markdown;
+use Illuminate\Queue\Console\WorkCommand;
 use Illuminate\Queue\Queue;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Arr;
+use Illuminate\Support\EncodedHtmlString;
+use Illuminate\Support\Once;
 use Illuminate\Support\Sleep;
+use Illuminate\Validation\Validator;
 use Illuminate\View\Component;
-use Orchestra\Testbench\Bootstrap\HandleExceptions;
-use Orchestra\Testbench\Bootstrap\RegisterProviders;
 use Orchestra\Testbench\Concerns\CreatesApplication;
+use Orchestra\Testbench\Console\Commander;
 use Orchestra\Testbench\Contracts\Config as ConfigContract;
 use Orchestra\Testbench\Workbench\Workbench;
 
@@ -53,13 +66,6 @@ class Application
     protected $app;
 
     /**
-     * The application base path.
-     *
-     * @var string|null
-     */
-    protected $basePath;
-
-    /**
      * List of configurations.
      *
      * @var array<string, mixed>
@@ -85,7 +91,7 @@ class Application
      *
      * @var bool
      */
-    protected $loadEnvironmentVariables = false;
+    protected bool $loadEnvironmentVariables = false;
 
     /**
      * Create new application resolver.
@@ -93,9 +99,10 @@ class Application
      * @param  string|null  $basePath
      * @param  (callable(\Illuminate\Foundation\Application):(void))|null  $resolvingCallback
      */
-    public function __construct(?string $basePath = null, ?callable $resolvingCallback = null)
-    {
-        $this->basePath = $basePath;
+    public function __construct(
+        protected readonly ?string $basePath = null,
+        ?callable $resolvingCallback = null
+    ) {
         $this->resolvingCallback = $resolvingCallback;
     }
 
@@ -105,9 +112,10 @@ class Application
      * @param  string|null  $basePath
      * @param  (callable(\Illuminate\Foundation\Application):(void))|null  $resolvingCallback
      * @param  array<string, mixed>  $options
-     * @return static
      *
      * @phpstan-param TConfig  $options
+     *
+     * @return static
      */
     public static function make(?string $basePath = null, ?callable $resolvingCallback = null, array $options = [])
     {
@@ -120,9 +128,10 @@ class Application
      * @param  \Orchestra\Testbench\Contracts\Config  $config
      * @param  (callable(\Illuminate\Foundation\Application):(void))|null  $resolvingCallback
      * @param  array<string, mixed>  $options
-     * @return static
      *
      * @phpstan-param TConfig  $options
+     *
+     * @return static
      */
     public static function makeFromConfig(ConfigContract $config, ?callable $resolvingCallback = null, array $options = [])
     {
@@ -175,9 +184,10 @@ class Application
      * @param  string|null  $basePath
      * @param  (callable(\Illuminate\Foundation\Application):(void))|null  $resolvingCallback
      * @param  array<string, mixed>  $options
-     * @return \Illuminate\Foundation\Application
      *
      * @phpstan-param TConfig  $options
+     *
+     * @return \Illuminate\Foundation\Application
      */
     public static function create(?string $basePath = null, ?callable $resolvingCallback = null, array $options = [])
     {
@@ -190,9 +200,10 @@ class Application
      * @param  \Orchestra\Testbench\Contracts\Config  $config
      * @param  (callable(\Illuminate\Foundation\Application):(void))|null  $resolvingCallback
      * @param  array<string, mixed>  $options
-     * @return \Illuminate\Foundation\Application
      *
      * @phpstan-param TConfig  $options
+     *
+     * @return \Illuminate\Foundation\Application
      */
     public static function createFromConfig(ConfigContract $config, ?callable $resolvingCallback = null, array $options = [])
     {
@@ -202,10 +213,10 @@ class Application
     /**
      * Flush the application states.
      *
-     * @param  \Orchestra\Testbench\Console\Commander|\Orchestra\Testbench\PHPUnit\TestCase|null  $instance
+     * @param  \Orchestra\Testbench\Console\Commander|\Orchestra\Testbench\PHPUnit\TestCase  $instance
      * @return void
      */
-    public static function flushState(?object $instance = null): void
+    public static function flushState(object $instance): void
     {
         AboutCommand::flushState();
         Artisan::forgetBootstrappers();
@@ -214,32 +225,49 @@ class Application
         Component::forgetComponentsResolver();
         Component::forgetFactory();
         ConvertEmptyStringsToNull::flushState();
-        HandleExceptions::forgetApp();
+        Factory::flushState();
+        EncodedHtmlString::flushState();
+
+        if (! $instance instanceof Commander) {
+            HandleExceptions::flushState($instance);
+        }
+
         JsonResource::wrap('data');
+        Markdown::flushState();
+        Migrator::withoutMigrations([]);
         Model::handleDiscardedAttributeViolationUsing(null);
         Model::handleLazyLoadingViolationUsing(null);
         Model::handleMissingAttributeViolationUsing(null);
         Model::preventAccessingMissingAttributes(false);
         Model::preventLazyLoading(false);
         Model::preventSilentlyDiscardingAttributes(false);
+        Once::flush();
+        PreventRequestsDuringMaintenance::flushState();
         Queue::createPayloadUsing(null);
         RegisterProviders::flushState();
         RouteListCommand::resolveTerminalWidthUsing(null);
         ScheduleListCommand::resolveTerminalWidthUsing(null);
         SchemaBuilder::$defaultStringLength = 255;
         SchemaBuilder::$defaultMorphKeyType = 'int';
-        Signals::resolveAvailabilityUsing(null);
+        Signals::resolveAvailabilityUsing(null); // @phpstan-ignore argument.type
         Sleep::fake(false);
+        ThrottleRequests::shouldHashKeys();
         TrimStrings::flushState();
+        TrustProxies::flushState();
+        TrustHosts::flushState();
+        Validator::flushState();
+        ValidateCsrfToken::flushState();
+        WorkCommand::flushState();
     }
 
     /**
      * Configure the application options.
      *
      * @param  array<string, mixed>  $options
-     * @return $this
      *
      * @phpstan-param TConfig  $options
+     *
+     * @return $this
      */
     public function configure(array $options)
     {
@@ -262,6 +290,8 @@ class Application
     /**
      * Ignore package discovery from.
      *
+     * @api
+     *
      * @return array<int, string>
      */
     public function ignorePackageDiscoveriesFrom()
@@ -271,6 +301,8 @@ class Application
 
     /**
      * Get package providers.
+     *
+     * @api
      *
      * @param  \Illuminate\Foundation\Application  $app
      * @return array<int, class-string>
@@ -282,6 +314,8 @@ class Application
 
     /**
      * Get package bootstrapper.
+     *
+     * @api
      *
      * @param  \Illuminate\Foundation\Application  $app
      * @return array<int, class-string>
@@ -298,10 +332,12 @@ class Application
     /**
      * Resolve application resolving callback.
      *
+     * @internal
+     *
      * @param  \Illuminate\Foundation\Application  $app
      * @return void
      */
-    private function resolveApplicationResolvingCallback($app): void
+    protected function resolveApplicationResolvingCallback($app): void
     {
         $this->resolveApplicationResolvingCallbackFromTrait($app);
 
@@ -315,6 +351,8 @@ class Application
      *
      * @api
      *
+     * @internal
+     *
      * @return string
      */
     protected function getApplicationBasePath()
@@ -324,6 +362,8 @@ class Application
 
     /**
      * Resolve application core environment variables implementation.
+     *
+     * @internal
      *
      * @param  \Illuminate\Foundation\Application  $app
      * @return void
@@ -346,6 +386,8 @@ class Application
     /**
      * Resolve application core configuration implementation.
      *
+     * @internal
+     *
      * @param  \Illuminate\Foundation\Application  $app
      * @return void
      */
@@ -359,11 +401,17 @@ class Application
     /**
      * Resolve application Console Kernel implementation.
      *
+     * @api
+     *
      * @param  \Illuminate\Foundation\Application  $app
      * @return void
      */
     protected function resolveApplicationConsoleKernel($app)
     {
+        if ($this->hasCustomApplicationKernels() === true) {
+            return;
+        }
+
         $kernel = Workbench::applicationConsoleKernel() ?? 'Orchestra\Testbench\Console\Kernel';
 
         if (is_file($app->basePath(join_paths('app', 'Console', 'Kernel.php'))) && class_exists('App\Console\Kernel')) {
@@ -376,11 +424,17 @@ class Application
     /**
      * Resolve application HTTP Kernel implementation.
      *
+     * @api
+     *
      * @param  \Illuminate\Foundation\Application  $app
      * @return void
      */
     protected function resolveApplicationHttpKernel($app)
     {
+        if ($this->hasCustomApplicationKernels() === true) {
+            return;
+        }
+
         $kernel = Workbench::applicationHttpKernel() ?? 'Orchestra\Testbench\Http\Kernel';
 
         if (is_file($app->basePath(join_paths('app', 'Http', 'Kernel.php'))) && class_exists('App\Http\Kernel')) {

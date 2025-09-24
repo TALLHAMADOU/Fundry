@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\PendingCommand;
 use InvalidArgumentException;
 use Orchestra\Sidekick;
+use PHPUnit\Framework\TestCase as PHPUnitTestCase;
+use PHPUnit\Runner\ShutdownHandler;
 
 /**
  * Create Laravel application instance.
@@ -62,16 +64,44 @@ function artisan(Contracts\TestCase|ApplicationContract $context, string $comman
 }
 
 /**
+ * Emit an exit event within a test.
+ *
+ * @param  \PHPUnit\Framework\TestCase|object|null  $testCase
+ * @param  string|int  $status
+ * @return never
+ */
+function bail(?object $testCase, string|int $status = 0): never
+{
+    if ($testCase instanceof PHPUnitTestCase && Sidekick\phpunit_version_compare('12.3.5', '>=')) {
+        ShutdownHandler::resetMessage();
+    }
+
+    exit($status);
+}
+
+/**
+ * Emit an exit event within a test.
+ *
+ * @param  \PHPUnit\Framework\TestCase|object|null  $testCase
+ * @param  string|int  $status
+ * @return never
+ */
+function terminate(?object $testCase, string|int $status = 0): never
+{
+    bail($testCase, $status);
+}
+
+/**
  * Run remote action using Testbench CLI.
  *
  * @api
  *
- * @param  array<int, string>|string  $command
+ * @param  (\Closure():(mixed))|array<int, string>|string  $command
  * @param  array<string, mixed>|string  $env
  * @param  bool|null  $tty
  * @return \Orchestra\Testbench\Foundation\Process\ProcessDecorator
  */
-function remote(array|string $command, array|string $env = [], ?bool $tty = null): Foundation\Process\ProcessDecorator
+function remote(Closure|array|string $command, array|string $env = [], ?bool $tty = null): Foundation\Process\ProcessDecorator
 {
     $remote = new Foundation\Process\RemoteCommand(
         package_path(), $env, $tty
@@ -98,6 +128,7 @@ function remote(array|string $command, array|string $env = [], ?bool $tty = null
  *
  * @codeCoverageIgnore
  */
+#[\Deprecated(message: 'Use `Orchestra\Sidekick\once()` instead', since: '7.55.0')]
 function once($callback): Closure
 {
     return Sidekick\once($callback);
@@ -142,20 +173,6 @@ function load_migration_paths(ApplicationContract $app, array|string $paths): vo
 }
 
 /**
- * Get default environment variables.
- *
- * @return array<int, string>
- *
- * @deprecated
- *
- * @codeCoverageIgnore
- */
-function default_environment_variables(): array
-{
-    return [];
-}
-
-/**
  * Get defined environment variables.
  *
  * @api
@@ -164,7 +181,7 @@ function default_environment_variables(): array
  */
 function defined_environment_variables(): array
 {
-    return Collection::make(array_merge($_SERVER, $_ENV))
+    return (new Collection(array_merge($_SERVER, $_ENV)))
         ->keys()
         ->mapWithKeys(static fn (string $key) => [$key => Sidekick\Env::forward($key)])
         ->unless(
@@ -182,7 +199,7 @@ function defined_environment_variables(): array
  */
 function parse_environment_variables($variables): array
 {
-    return Collection::make($variables)
+    return (new Collection($variables))
         ->transform(static function ($value, $key) {
             if (\is_bool($value) || \in_array($value, ['true', 'false'])) {
                 $value = \in_array($value, [true, 'true']) ? '(true)' : '(false)';
@@ -252,6 +269,7 @@ function transform_realpath_to_relative(string $path, ?string $workingPath = nul
  *
  * @codeCoverageIgnore
  */
+#[\Deprecated(message: 'Use `Orchestra\Sidekick\transform_relative_path()` instead', since: '7.55.0')]
 function transform_relative_path(string $path, string $workingPath): string
 {
     return Sidekick\transform_relative_path($path, $workingPath);
@@ -265,13 +283,26 @@ function transform_relative_path(string $path, string $workingPath): string
  * @no-named-arguments
  *
  * @param  array<int, string|null>|string  ...$path
- * @return string
+ * @return ($path is '' ? string : string|false)
  */
-function default_skeleton_path(array|string $path = ''): string
+function default_skeleton_path(array|string $path = ''): string|false
 {
-    return (string) realpath(
+    return realpath(
         Sidekick\join_paths(__DIR__, '..', 'laravel', ...Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path))
     );
+}
+
+/**
+ * Determine if application is bootstrapped using Testbench's default skeleton.
+ *
+ * @param  string|null  $basePath
+ * @return bool
+ */
+function uses_default_skeleton(?string $basePath = null): bool
+{
+    $basePath ??= base_path();
+
+    return realpath(Sidekick\join_paths($basePath, 'bootstrap', '.testbench-default-skeleton')) !== false;
 }
 
 /**
@@ -316,13 +347,13 @@ function package_path(array|string $path = ''): string
         : Sidekick\Env::get('TESTBENCH_WORKING_PATH', getcwd());
 
     if ($argumentCount === 1 && \is_string($path) && str_starts_with($path, './')) {
-        return transform_relative_path($path, $workingPath);
+        return Sidekick\transform_relative_path($path, $workingPath);
     }
 
     $path = Sidekick\join_paths(...Arr::wrap($argumentCount > 1 ? \func_get_args() : $path));
 
     return str_starts_with($path, './')
-        ? transform_relative_path($path, $workingPath)
+        ? Sidekick\transform_relative_path($path, $workingPath)
         : Sidekick\join_paths(rtrim($workingPath, DIRECTORY_SEPARATOR), $path);
 }
 
@@ -369,7 +400,10 @@ function workbench_path(array|string $path = ''): string
  * @throws \InvalidArgumentException
  *
  * @deprecated
+ *
+ * @codeCoverageIgnore
  */
+#[\Deprecated(message: 'Use `Orchestra\Testbench\default_migration_path()` instead', since: '9.5.1')]
 function laravel_migration_path(?string $type = null): string
 {
     return default_migration_path($type);
@@ -404,13 +438,14 @@ function laravel_vendor_exists(ApplicationContract $app, ?string $workingPath = 
  *
  * @param  string  $version
  * @param  string|null  $operator
- * @return int|bool
  *
  * @phpstan-param  TOperator  $operator
  *
+ * @return int|bool
+ *
  * @phpstan-return (TOperator is null ? int : bool)
  */
-function laravel_version_compare(string $version, ?string $operator = null)
+function laravel_version_compare(string $version, ?string $operator = null): int|bool
 {
     return Sidekick\laravel_version_compare($version, $operator);
 }
@@ -424,15 +459,16 @@ function laravel_version_compare(string $version, ?string $operator = null)
  *
  * @param  string  $version
  * @param  string|null  $operator
- * @return int|bool
- *
- * @throws \RuntimeException
  *
  * @phpstan-param  TOperator  $operator
  *
+ * @return int|bool
+ *
  * @phpstan-return (TOperator is null ? int : bool)
+ *
+ * @throws \RuntimeException
  */
-function phpunit_version_compare(string $version, ?string $operator = null)
+function phpunit_version_compare(string $version, ?string $operator = null): int|bool
 {
     return Sidekick\phpunit_version_compare($version, $operator);
 }

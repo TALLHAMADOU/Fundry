@@ -5,6 +5,7 @@ namespace Orchestra\Testbench\Concerns\Database;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Orchestra\Testbench\Concerns\InteractsWithPublishedFiles;
+use PHPUnit\Framework\Attributes\AfterClass;
 
 trait InteractsWithSqliteDatabaseFile
 {
@@ -75,21 +76,21 @@ trait InteractsWithSqliteDatabaseFile
     /**
      * Tear down the Dusk test case class.
      *
-     * @afterClass
-     *
      * @return void
      *
      * @codeCoverageIgnore
      */
+    #[AfterClass]
     public static function cleanupBackupSqliteDatabaseFilesOnFailed()
     {
         $filesystem = new Filesystem;
 
         $filesystem->delete(
-            Collection::make($filesystem->glob(database_path('database.sqlite.backup-*')))
-                ->filter(static function ($file) use ($filesystem) {
-                    return $filesystem->exists($file);
-                })->all()
+            (new Collection([
+                ...$filesystem->glob(database_path('database.sqlite.backup-*')),
+                ...$filesystem->glob(database_path('database.sqlite-*')),
+            ]))->filter(static fn ($file) => $filesystem->exists($file))
+                ->all()
         );
     }
 }

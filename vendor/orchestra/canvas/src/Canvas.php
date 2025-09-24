@@ -3,6 +3,7 @@
 namespace Orchestra\Canvas;
 
 use Illuminate\Support\Arr;
+use InvalidArgumentException;
 
 class Canvas
 {
@@ -10,31 +11,21 @@ class Canvas
      * Make Preset from configuration.
      *
      * @param  array<string, mixed>  $config
-     * @return \Orchestra\Canvas\Presets\Preset
      */
     public static function preset(array $config, string $basePath): Presets\Preset
     {
         /** @var array<string, mixed> $configuration */
         $configuration = Arr::except($config, 'preset');
 
-        $preset = $config['preset'];
+        /** @var string|class-string<\Orchestra\Canvas\Presets\Preset> $preset */
+        $preset = $config['preset'] ?? 'laravel';
 
-        switch ($preset) {
-            case 'package':
-                return new Presets\Package($configuration, $basePath);
-            case 'laravel':
-                return new Presets\Laravel($configuration, $basePath);
-            default:
-                if (class_exists($preset)) {
-                    /**
-                     * @var class-string<\Orchestra\Canvas\Presets\Preset> $preset
-                     *
-                     * @return \Orchestra\Canvas\Presets\Preset
-                     */
-                    return new $preset($configuration, $basePath);
-                }
-
-                return new Presets\Laravel($configuration, $basePath);
-        }
+        /** @phpstan-ignore return.type */
+        return match (true) {
+            $preset === 'package' => new Presets\Package($configuration, $basePath),
+            $preset === 'laravel' => new Presets\Laravel($configuration, $basePath),
+            class_exists($preset) => new $preset($configuration, $basePath),
+            default => throw new InvalidArgumentException(\sprintf('Unable to resolve %s preset', $preset)),
+        };
     }
 }

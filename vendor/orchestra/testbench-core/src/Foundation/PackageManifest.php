@@ -26,7 +26,7 @@ class PackageManifest extends IlluminatePackageManifest
      *
      * @var array<int, string>
      */
-    protected $requiredPackages = [
+    protected array $requiredPackages = [
         'laravel/dusk',
         'spatie/laravel-ray',
     ];
@@ -50,7 +50,7 @@ class PackageManifest extends IlluminatePackageManifest
      * @param  object|null  $testbench
      * @return void
      */
-    public static function swap($app, $testbench = null)
+    public static function swap($app, $testbench = null): void
     {
         /** @var \Illuminate\Foundation\PackageManifest $base */
         $base = $app->make(IlluminatePackageManifest::class);
@@ -99,7 +99,7 @@ class PackageManifest extends IlluminatePackageManifest
 
         $requires = $this->requiredPackages;
 
-        return Collection::make(parent::getManifest())
+        return (new Collection(parent::getManifest()))
             ->reject(static fn ($configuration, $package) => ($ignoreAll && ! \in_array($package, $requires)) || \in_array($package, $ignore))
             ->map(static function ($configuration, $package) {
                 foreach ($configuration['providers'] ?? [] as $provider) {
@@ -124,7 +124,7 @@ class PackageManifest extends IlluminatePackageManifest
      *
      * @return array
      */
-    protected function providersFromRoot()
+    protected function providersFromRoot(): array
     {
         $package = $this->providersFromTestbench();
 
@@ -138,7 +138,7 @@ class PackageManifest extends IlluminatePackageManifest
      *
      * @return array{name: string, extra?: array{laravel?: array}}|null
      */
-    protected function providersFromTestbench()
+    protected function providersFromTestbench(): ?array
     {
         if (\defined('TESTBENCH_CORE') && is_file(package_path('composer.json'))) {
             /** @var array{name: string, extra?: array{laravel?: array}} $composer */
@@ -155,7 +155,7 @@ class PackageManifest extends IlluminatePackageManifest
     protected function write(array $manifest)
     {
         parent::write(
-            Collection::make($manifest)->merge($this->providersFromRoot())->filter()->all()
+            (new Collection($manifest))->merge($this->providersFromRoot())->filter()->all()
         );
     }
 }

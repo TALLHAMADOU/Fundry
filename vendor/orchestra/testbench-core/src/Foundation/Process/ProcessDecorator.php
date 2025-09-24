@@ -2,6 +2,7 @@
 
 namespace Orchestra\Testbench\Foundation\Process;
 
+use Closure;
 use Illuminate\Support\Traits\ForwardsCalls;
 use Symfony\Component\Process\Process;
 
@@ -18,11 +19,11 @@ final class ProcessDecorator
      * Create a new process decorator instance.
      *
      * @param  \Symfony\Component\Process\Process  $process
-     * @param  array<int, string>|string  $command
+     * @param  (\Closure():(mixed))|array<int, string>|string  $command
      */
     public function __construct(
         protected Process $process,
-        protected array|string $command,
+        protected Closure|array|string $command,
     ) {}
 
     /**

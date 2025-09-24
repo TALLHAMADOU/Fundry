@@ -19,7 +19,7 @@ class ServeCommand extends Command
 {
     /** {@inheritDoc} */
     #[\Override]
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         if (
             class_exists(ComposerConfig::class, false)
@@ -28,10 +28,16 @@ class ServeCommand extends Command
             ComposerConfig::disableProcessTimeout();
         }
 
-        $workers = getenv('PHP_CLI_SERVER_WORKERS');
+        $serverWorkers = getenv('PHP_CLI_SERVER_WORKERS');
 
-        if (\is_string($workers) && filter_var($workers, FILTER_VALIDATE_INT) && ! isset($_ENV['PHP_CLI_SERVER_WORKERS'])) {
-            $_ENV['PHP_CLI_SERVER_WORKERS'] = (int) $workers;
+        if (\is_string($serverWorkers) && filter_var($serverWorkers, FILTER_VALIDATE_INT) && ! isset($_ENV['PHP_CLI_SERVER_WORKERS'])) {
+            /** @var int<2, max>|false $workers */
+            $workers = transform(
+                $serverWorkers,
+                static fn (int $workers) => $workers > 1 ? $workers : false // @phpstan-ignore argument.type
+            );
+
+            $this->phpServerWorkers = $workers;
         }
 
         $_ENV['TESTBENCH_WORKING_PATH'] = package_path();

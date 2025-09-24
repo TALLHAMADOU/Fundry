@@ -11,7 +11,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * @codeCoverageIgnore
  */
-class ServeCommandStarted
+readonly class ServeCommandStarted
 {
     /**
      * Construct a new event.

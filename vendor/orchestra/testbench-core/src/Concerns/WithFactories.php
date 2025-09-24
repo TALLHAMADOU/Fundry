@@ -10,14 +10,16 @@ use function Orchestra\Testbench\laravel_or_fail;
 /**
  * @api
  *
- * @codeCoverageIgnore
- *
  * @deprecated
+ *
+ * @codeCoverageIgnore
  */
 trait WithFactories
 {
     /**
      * Load model factories from path.
+     *
+     * @internal
      *
      * @param  string  $path
      * @return $this

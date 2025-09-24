@@ -26,7 +26,7 @@ trait CreatesUsingGeneratorPreset
             'preset',
             null,
             InputOption::VALUE_OPTIONAL,
-            sprintf('Preset used %s', $message),
+            \sprintf('Preset used %s', $message),
             null,
         ));
     }
@@ -36,7 +36,10 @@ trait CreatesUsingGeneratorPreset
      */
     protected function generatorPreset(): Preset
     {
-        return $this->laravel->make(PresetManager::class)->driver($this->option('preset'));
+        /** @var string|null $preset */
+        $preset = $this->option('preset');
+
+        return $this->laravel->make(PresetManager::class)->driver($preset);
     }
 
     /**

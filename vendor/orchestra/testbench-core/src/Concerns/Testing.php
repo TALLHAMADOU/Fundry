@@ -8,7 +8,6 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Foundation\Testing\WithoutEvents;
 use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Illuminate\Support\LazyCollection;
 use Orchestra\Testbench\Pest\WithPest;
@@ -138,19 +137,15 @@ trait Testing
             $this->disableMiddlewareForAllTests(); /** @phpstan-ignore method.notFound */
         }
 
-        if (isset($uses[WithoutEvents::class])) {
-            $this->disableEventsForAllTests(); /** @phpstan-ignore method.notFound */
-        }
-
         if (isset($uses[WithFaker::class])) {
             $this->setUpFaker(); /** @phpstan-ignore method.notFound */
         }
 
-        LazyCollection::make(static function () use ($uses) {
+        (new LazyCollection(static function () use ($uses) {
             foreach ($uses as $use) {
                 yield $use;
             }
-        })
+        }))
             ->reject(function ($use) {
                 /** @var class-string $use */
                 return $this->setUpTheTestEnvironmentTraitToBeIgnored($use);
@@ -174,24 +169,25 @@ trait Testing
     }
 
     /**
-     * Determine trait should be ignored from being autoloaded.
-     *
-     * @param  class-string  $use
-     * @return bool
-     */
-    protected function setUpTheTestEnvironmentTraitToBeIgnored(string $use): bool
-    {
-        return false;
-    }
-
-    /**
      * Reload the application instance with cached routes.
+     *
+     * @api
+     *
+     * @return void
      */
     protected function reloadApplication(): void
     {
         $this->tearDownTheTestEnvironment();
         $this->setUpTheTestEnvironment();
     }
+
+    /**
+     * Determine trait should be ignored from being autoloaded.
+     *
+     * @param  class-string  $use
+     * @return bool
+     */
+    abstract protected function setUpTheTestEnvironmentTraitToBeIgnored(string $use): bool;
 
     /**
      * Boot the testing helper traits.

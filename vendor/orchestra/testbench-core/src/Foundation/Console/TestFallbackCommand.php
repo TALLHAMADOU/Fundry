@@ -8,7 +8,6 @@ use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 use function Laravel\Prompts\confirm;
-use function Orchestra\Sidekick\phpunit_version_compare;
 use function Orchestra\Testbench\package_path;
 use function Orchestra\Testbench\php_binary;
 
@@ -62,12 +61,12 @@ class TestFallbackCommand extends Command
     public function handle()
     {
         if (! confirm('Running tests requires "nunomaduro/collision". Do you wish to install it as a dev dependency?')) {
-            return 1;
+            return Command::FAILURE;
         }
 
         $this->installCollisionDependencies();
 
-        return 0;
+        return Command::SUCCESS;
     }
 
     /**
@@ -75,13 +74,9 @@ class TestFallbackCommand extends Command
      *
      * @return void
      */
-    protected function installCollisionDependencies()
+    protected function installCollisionDependencies(): void
     {
-        $version = match (true) {
-            phpunit_version_compare('10.3', '>=') => '7.8',
-            phpunit_version_compare('10', '>=') => '7.4',
-            default => '6.4',
-        };
+        $version = '8.0';
 
         $command = \sprintf('%s require "nunomaduro/collision:^%s" --dev', $this->findComposer(), $version);
 
@@ -111,7 +106,7 @@ class TestFallbackCommand extends Command
      *
      * @return string
      */
-    protected function findComposer()
+    protected function findComposer(): string
     {
         $composerPath = package_path('composer.phar');
 

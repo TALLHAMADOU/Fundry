@@ -15,7 +15,7 @@ final class ResolvesLaravel implements ActionableContract
      * @param  string  $method
      */
     public function __construct(
-        public string $method
+        public readonly string $method
     ) {}
 
     /**

@@ -21,7 +21,7 @@ class LoadConfigurationWithWorkbench extends LoadConfiguration
      *
      * @var bool
      */
-    protected bool $usesWorkbenchConfigFile = false;
+    protected readonly bool $usesWorkbenchConfigFile;
 
     /**
      * Construct a new bootstrap class.
@@ -62,7 +62,7 @@ class LoadConfigurationWithWorkbench extends LoadConfiguration
             return $configurations;
         }
 
-        LazyCollection::make(function () {
+        (new LazyCollection(function () {
             $path = workbench_path('config');
 
             foreach (Finder::create()->files()->name('*.php')->in($path) as $file) {
@@ -70,7 +70,7 @@ class LoadConfigurationWithWorkbench extends LoadConfiguration
 
                 yield $directory.basename($file->getRealPath(), '.php') => $file->getRealPath();
             }
-        })->reject(static fn ($path, $key) => $configurations->has($key))
+        }))->reject(static fn ($path, $key) => $configurations->has($key))
             ->each(static function ($path, $key) use ($configurations) {
                 $configurations->put($key, $path);
             });

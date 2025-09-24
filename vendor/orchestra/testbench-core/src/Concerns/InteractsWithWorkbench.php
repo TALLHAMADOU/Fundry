@@ -17,6 +17,8 @@ trait InteractsWithWorkbench
     /**
      * Get Application's base path.
      *
+     * @internal
+     *
      * @return string|null
      */
     public static function applicationBasePathUsingWorkbench(): ?string
@@ -30,6 +32,8 @@ trait InteractsWithWorkbench
 
     /**
      * Ignore package discovery from.
+     *
+     * @internal
      *
      * @return array<int, string>|null
      */
@@ -47,6 +51,8 @@ trait InteractsWithWorkbench
     /**
      * Get package bootstrapper.
      *
+     * @internal
+     *
      * @param  \Illuminate\Foundation\Application  $app
      * @return array<int, class-string>|null
      */
@@ -63,6 +69,8 @@ trait InteractsWithWorkbench
 
     /**
      * Get package providers.
+     *
+     * @internal
      *
      * @param  \Illuminate\Foundation\Application  $app
      * @return array<int, class-string<\Illuminate\Support\ServiceProvider>>|null
@@ -90,6 +98,8 @@ trait InteractsWithWorkbench
     /**
      * Resolve application Console Kernel implementation.
      *
+     * @internal
+     *
      * @param  \Illuminate\Foundation\Application  $app
      * @return string
      */
@@ -105,6 +115,8 @@ trait InteractsWithWorkbench
     /**
      * Get application HTTP Kernel implementation using Workbench.
      *
+     * @internal
+     *
      * @param  \Illuminate\Foundation\Application  $app
      * @return string
      */
@@ -119,6 +131,8 @@ trait InteractsWithWorkbench
 
     /**
      * Get application HTTP exception handler using Workbench.
+     *
+     * @internal
      *
      * @param  \Illuminate\Foundation\Application  $app
      * @return string
@@ -145,6 +159,8 @@ trait InteractsWithWorkbench
     /**
      * Prepare the testing environment before the running the test case.
      *
+     * @internal
+     *
      * @return void
      *
      * @codeCoverageIgnore
@@ -164,6 +180,8 @@ trait InteractsWithWorkbench
 
     /**
      * Clean up the testing environment before the next test case.
+     *
+     * @internal
      *
      * @return void
      *

@@ -15,7 +15,7 @@ class ApplicationNotAvailableException extends RuntimeException
      * @param  string|null  $caller
      * @return static
      */
-    public static function make(?string $caller)
+    public static function make(?string $caller): static
     {
         return new static(\sprintf('Application is not available to run [%s]', $caller ?? 'N/A'));
     }

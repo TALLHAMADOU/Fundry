@@ -45,7 +45,10 @@ trait InteractsWithMigrations
      */
     protected function tearDownInteractsWithMigrations(): void
     {
-        if (\count($this->cachedTestMigratorProcessors) > 0 && static::usesRefreshDatabaseTestingConcern()) {
+        if (
+            (\count($this->cachedTestMigratorProcessors) > 0 && static::usesRefreshDatabaseTestingConcern())
+            || ($this->usesSqliteInMemoryDatabaseConnection() && ! empty(RefreshDatabaseState::$inMemoryConnections))
+        ) {
             ResetRefreshDatabaseState::run();
         }
 
@@ -57,10 +60,12 @@ trait InteractsWithMigrations
     /**
      * Define hooks to migrate the database before and after each test.
      *
+     * @api
+     *
      * @param  array<int|string, mixed>|string  $paths
      * @return void
      */
-    protected function loadMigrationsFrom($paths): void
+    protected function loadMigrationsFrom(array|string $paths): void
     {
         $app = laravel_or_fail($this->app);
 
@@ -77,18 +82,28 @@ trait InteractsWithMigrations
         }
 
         /** @var array<string, mixed>|string $paths */
-        $this->loadMigrationsWithoutRollbackFrom($paths);
+        $migrator = new MigrateProcessor($this, $this->resolvePackageMigrationsOptions($paths));
+        $migrator->up();
+
+        array_unshift($this->cachedTestMigratorProcessors, $migrator);
+
+        $this->resetApplicationArtisanCommands($app);
     }
 
     /**
      * Define hooks to migrate the database before each test without rollback after.
      *
+     * @api
+     *
      * @param  array<string, mixed>|string  $paths
      * @return void
      *
      * @deprecated
+     *
+     * @codeCoverageIgnore
      */
-    protected function loadMigrationsWithoutRollbackFrom($paths): void
+    #[\Deprecated(message: 'Use `loadMigrationsFrom()` instead', since: '9.0.7')]
+    protected function loadMigrationsWithoutRollbackFrom(array|string $paths): void
     {
         $app = laravel_or_fail($this->app);
 
@@ -103,12 +118,14 @@ trait InteractsWithMigrations
     /**
      * Resolve Package Migrations Artisan command options.
      *
+     * @internal
+     *
      * @param  array<string, mixed>|string  $paths
      * @return array<string, mixed>
      *
      * @throws \InvalidArgumentException
      */
-    protected function resolvePackageMigrationsOptions($paths = []): array
+    protected function resolvePackageMigrationsOptions(array|string $paths = []): array
     {
         $options = \is_array($paths) ? $paths : ['--path' => $paths];
 
@@ -124,23 +141,12 @@ trait InteractsWithMigrations
     /**
      * Migrate Laravel's default migrations.
      *
-     * @param  array<string, mixed>|string  $database
-     * @return void
-     */
-    protected function loadLaravelMigrations($database = []): void
-    {
-        $this->loadLaravelMigrationsWithoutRollback($database);
-    }
-
-    /**
-     * Migrate Laravel's default migrations without rollback.
+     * @api
      *
      * @param  array<string, mixed>|string  $database
      * @return void
-     *
-     * @deprecated
      */
-    protected function loadLaravelMigrationsWithoutRollback($database = []): void
+    protected function loadLaravelMigrations(array|string $database = []): void
     {
         $app = laravel_or_fail($this->app);
 
@@ -157,25 +163,32 @@ trait InteractsWithMigrations
     }
 
     /**
-     * Migrate all Laravel's migrations.
+     * Migrate Laravel's default migrations without rollback.
      *
-     * @param  array<string, mixed>|string  $database
-     * @return void
-     */
-    protected function runLaravelMigrations($database = []): void
-    {
-        $this->runLaravelMigrationsWithoutRollback($database);
-    }
-
-    /**
-     * Migrate all Laravel's migrations without rollback.
+     * @api
      *
      * @param  array<string, mixed>|string  $database
      * @return void
      *
      * @deprecated
+     *
+     * @codeCoverageIgnore
      */
-    protected function runLaravelMigrationsWithoutRollback($database = []): void
+    #[\Deprecated(message: 'Use `loadLaravelMigrations()` instead', since: '9.0.7')]
+    protected function loadLaravelMigrationsWithoutRollback(array|string $database = []): void
+    {
+        $this->loadLaravelMigrations($database);
+    }
+
+    /**
+     * Migrate all Laravel's migrations.
+     *
+     * @api
+     *
+     * @param  array<string, mixed>|string  $database
+     * @return void
+     */
+    protected function runLaravelMigrations(array|string $database = []): void
     {
         $app = laravel_or_fail($this->app);
 
@@ -188,12 +201,32 @@ trait InteractsWithMigrations
     }
 
     /**
+     * Migrate all Laravel's migrations without rollback.
+     *
+     * @api
+     *
+     * @param  array<string, mixed>|string  $database
+     * @return void
+     *
+     * @deprecated
+     *
+     * @codeCoverageIgnore
+     */
+    #[\Deprecated(message: 'Use `runLaravelMigrations()` method instead', since: '9.0.7')]
+    protected function runLaravelMigrationsWithoutRollback(array|string $database = []): void
+    {
+        $this->runLaravelMigrations($database);
+    }
+
+    /**
      * Resolve Laravel Migrations Artisan command options.
+     *
+     * @internal
      *
      * @param  array<string, mixed>|string  $database
      * @return array<string, mixed>
      */
-    protected function resolveLaravelMigrationsOptions($database = []): array
+    protected function resolveLaravelMigrationsOptions(array|string $database = []): array
     {
         $options = \is_array($database) ? $database : ['--database' => $database];
 

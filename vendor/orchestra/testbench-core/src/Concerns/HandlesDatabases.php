@@ -5,6 +5,7 @@ namespace Orchestra\Testbench\Concerns;
 use Closure;
 use Illuminate\Database\Events\DatabaseRefreshed;
 use Orchestra\Testbench\Attributes\DefineDatabase;
+use Orchestra\Testbench\Attributes\RequiresDatabase;
 use Orchestra\Testbench\Attributes\WithMigration;
 use Orchestra\Testbench\Features\TestingFeature;
 
@@ -18,11 +19,18 @@ trait HandlesDatabases
     /**
      * Setup database requirements.
      *
+     * @internal
+     *
      * @param  \Closure():void  $callback
      */
     protected function setUpDatabaseRequirements(Closure $callback): void
     {
         $app = laravel_or_fail($this->app);
+
+        TestingFeature::run(
+            testCase: $this,
+            attribute: fn () => $this->parseTestMethodAttributes($app, RequiresDatabase::class),
+        );
 
         $app['events']->listen(DatabaseRefreshed::class, function () {
             $this->defineDatabaseMigrationsAfterDatabaseRefreshed();
@@ -65,6 +73,8 @@ trait HandlesDatabases
     /**
      * Determine if using in-memory SQLite database connection
      *
+     * @api
+     *
      * @param  string|null  $connection
      * @return bool
      */
@@ -81,11 +91,19 @@ trait HandlesDatabases
         /** @var array{driver: string, database: string}|null $database */
         $database = $config->get("database.connections.{$connection}");
 
-        return ! \is_null($database) && $database['driver'] === 'sqlite' && $database['database'] == ':memory:';
+        if (\is_null($database) || $database['driver'] !== 'sqlite') {
+            return false;
+        }
+
+        return $database['database'] == ':memory:'
+            || str_contains($database['database'], '?mode=memory')
+            || str_contains($database['database'], '&mode=memory');
     }
 
     /**
      * Define database migrations.
+     *
+     * @api
      *
      * @return void
      */
@@ -97,6 +115,8 @@ trait HandlesDatabases
     /**
      * Define database migrations after database refreshed.
      *
+     * @api
+     *
      * @return void
      */
     protected function defineDatabaseMigrationsAfterDatabaseRefreshed()
@@ -107,6 +127,8 @@ trait HandlesDatabases
     /**
      * Destroy database migrations.
      *
+     * @api
+     *
      * @return void
      */
     protected function destroyDatabaseMigrations()
@@ -116,6 +138,8 @@ trait HandlesDatabases
 
     /**
      * Define database seeders.
+     *
+     * @api
      *
      * @return void
      */

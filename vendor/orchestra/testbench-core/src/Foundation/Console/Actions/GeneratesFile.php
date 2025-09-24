@@ -24,11 +24,11 @@ class GeneratesFile extends Action
      * @param  bool  $confirmation
      */
     public function __construct(
-        public Filesystem $filesystem,
-        public ?ComponentsFactory $components = null,
-        public bool $force = false,
+        public readonly Filesystem $filesystem,
+        public readonly ?ComponentsFactory $components = null,
+        public readonly bool $force = false,
         public ?string $workingPath = null,
-        public bool $confirmation = false
+        public readonly bool $confirmation = false
     ) {}
 
     /**
@@ -38,7 +38,7 @@ class GeneratesFile extends Action
      * @param  string|false|null  $to
      * @return void
      */
-    public function handle($from, $to): void
+    public function handle(string|false|null $from, string|false|null $to): void
     {
         if (! \is_string($from) || ! \is_string($to)) {
             return;

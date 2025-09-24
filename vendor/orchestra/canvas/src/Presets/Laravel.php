@@ -2,7 +2,7 @@
 
 namespace Orchestra\Canvas\Presets;
 
-use function Illuminate\Filesystem\join_paths;
+use function Orchestra\Sidekick\join_paths;
 
 class Laravel extends Preset
 {
@@ -32,8 +32,6 @@ class Laravel extends Preset
 
     /**
      * Command namespace.
-     *
-     * @return string
      */
     public function commandNamespace(): string
     {

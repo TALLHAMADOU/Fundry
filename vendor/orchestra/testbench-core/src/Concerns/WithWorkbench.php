@@ -8,9 +8,6 @@ use Orchestra\Testbench\Contracts\Config as ConfigContract;
 use Orchestra\Testbench\Foundation\Bootstrap\LoadMigrationsFromArray;
 use Orchestra\Testbench\Workbench\Workbench;
 
-/**
- * @api
- */
 trait WithWorkbench
 {
     use InteractsWithPHPUnit;
@@ -18,6 +15,8 @@ trait WithWorkbench
 
     /**
      * Bootstrap with Workbench.
+     *
+     * @internal
      *
      * @return void
      */
@@ -44,6 +43,8 @@ trait WithWorkbench
 
     /**
      * Bootstrap discover routes.
+     *
+     * @internal
      *
      * @param  \Illuminate\Contracts\Foundation\Application  $app
      * @return void
@@ -77,7 +78,7 @@ trait WithWorkbench
             ? $testCaseSeeder
             : \Database\Seeders\DatabaseSeeder::class;
 
-        $seeders = Collection::make($seeders)
+        $seeders = (new Collection($seeders))
             ->reject(static fn ($seeder) => $seeder === $testCaseSeeder)
             ->values();
 

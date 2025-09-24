@@ -75,12 +75,13 @@ class DevToolCommand extends Command implements PromptsForMissingInput
         ))->handle(
             Collection::make([
                 join_paths('app', 'Models'),
+
                 join_paths('database', 'factories'),
                 join_paths('database', 'migrations'),
                 join_paths('database', 'seeders'),
             ])->when(
                 $this->option('basic') === false,
-                fn ($directories) => $directories->push(...['routes', join_paths('resources', 'views')])
+                fn ($directories) => $directories->push(...['bootstrap', 'routes', join_paths('resources', 'views')])
             )->map(static fn ($directory) => join_paths($workbenchWorkingPath, $directory))
         );
 
@@ -95,7 +96,7 @@ class DevToolCommand extends Command implements PromptsForMissingInput
         $this->prepareWorkbenchDatabaseSchema($filesystem, $workbenchWorkingPath);
 
         if ($this->option('basic') === false) {
-            foreach (['api', 'console', 'web'] as $route) {
+            foreach (['console', 'web'] as $route) {
                 (new GeneratesFile(
                     filesystem: $filesystem,
                     components: $this->components,

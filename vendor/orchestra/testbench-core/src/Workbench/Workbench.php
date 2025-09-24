@@ -6,14 +6,18 @@ use Illuminate\Console\Application as Artisan;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Foundation\Application as ApplicationContract;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use Orchestra\Sidekick\Env;
 use Orchestra\Testbench\Contracts\Config as ConfigContract;
 use Orchestra\Testbench\Foundation\Config;
 use ReflectionClass;
 use Symfony\Component\Finder\Finder;
+use Throwable;
 
 use function Orchestra\Sidekick\join_paths;
 use function Orchestra\Testbench\after_resolving;
@@ -74,7 +78,7 @@ class Workbench
     {
         $app->singleton(ConfigContract::class, static fn () => $config);
 
-        Collection::make($providers)
+        (new Collection($providers))
             ->filter(static fn ($provider) => ! empty($provider) && class_exists($provider))
             ->each(static function ($provider) use ($app) {
                 $app->register($provider);
@@ -114,13 +118,45 @@ class Workbench
         /** @var TWorkbenchDiscoversConfig $discoversConfig */
         $discoversConfig = $config->getWorkbenchDiscoversAttributes();
 
-        $app->booted(static function ($app) use ($discoversConfig) {
-            tap($app->make('router'), static function (Router $router) use ($discoversConfig) {
-                foreach (['web', 'api'] as $group) {
-                    if (($discoversConfig[$group] ?? false) === true) {
-                        if (is_file($route = workbench_path('routes', "{$group}.php"))) {
-                            $router->middleware($group)->group($route);
+        $healthCheckEnabled = $config->getWorkbenchAttributes()['health'] ?? false;
+
+        $app->booted(static function ($app) use ($discoversConfig, $healthCheckEnabled) {
+            tap($app->make('router'), static function (Router $router) use ($discoversConfig, $healthCheckEnabled) {
+                if (($discoversConfig['api'] ?? false) === true) {
+                    if (is_file($route = workbench_path('routes', 'api.php'))) {
+                        $router->middleware('api')->group($route);
+                    }
+                }
+
+                if ($healthCheckEnabled === true) {
+                    $router->get('/up', static function () {
+                        $exception = null;
+
+                        try {
+                            Event::dispatch(new DiagnosingHealth);
+                        } catch (Throwable $error) {
+                            if (app()->hasDebugModeEnabled()) {
+                                throw $error;
+                            }
+
+                            report($error);
+
+                            $exception = $error->getMessage();
                         }
+
+                        return response(
+                            View::file(
+                                package_path('vendor', 'laravel', 'framework', 'src', 'Illuminate', 'Foundation', 'resources', 'health-up.blade.php'),
+                                ['exception' => $exception],
+                            ),
+                            status: $exception ? 500 : 200,
+                        );
+                    });
+                }
+
+                if (($discoversConfig['web'] ?? false) === true) {
+                    if (is_file($route = workbench_path('routes', 'web.php'))) {
+                        $router->middleware('web')->group($route);
                     }
                 }
             });
@@ -132,10 +168,10 @@ class Workbench
 
         after_resolving($app, 'translator', static function ($translator) {
             /** @var \Illuminate\Contracts\Translation\Loader $translator */
-            $path = Collection::make([
+            $path = (new Collection([
                 workbench_path('lang'),
                 workbench_path('resources', 'lang'),
-            ])->filter(static fn ($path) => is_dir($path))
+            ]))->filter(static fn ($path) => is_dir($path))
                 ->first();
 
             if (\is_null($path)) {

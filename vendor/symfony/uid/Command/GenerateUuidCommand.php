@@ -20,18 +20,16 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Uid\Exception\LogicException;
 use Symfony\Component\Uid\Factory\UuidFactory;
 use Symfony\Component\Uid\Uuid;
 
 #[AsCommand(name: 'uuid:generate', description: 'Generate a UUID')]
 class GenerateUuidCommand extends Command
 {
-    private UuidFactory $factory;
-
-    public function __construct(?UuidFactory $factory = null)
-    {
-        $this->factory = $factory ?? new UuidFactory();
-
+    public function __construct(
+        private UuidFactory $factory = new UuidFactory(),
+    ) {
         parent::__construct();
     }
 
@@ -149,7 +147,7 @@ EOF
                 $create = function () use ($namespace, $name): Uuid {
                     try {
                         $factory = $this->factory->nameBased($namespace);
-                    } catch (\LogicException) {
+                    } catch (LogicException) {
                         throw new \InvalidArgumentException('Missing namespace: use the "--namespace" option or configure a default namespace in the underlying factory.');
                     }
 
@@ -168,7 +166,7 @@ EOF
 
         $formatOption = $input->getOption('format');
 
-        if (\in_array($formatOption, $this->getAvailableFormatOptions())) {
+        if (\in_array($formatOption, $this->getAvailableFormatOptions(), true)) {
             $format = 'to'.ucfirst($formatOption);
         } else {
             $io->error(\sprintf('Invalid format "%s", supported formats are "%s".', $formatOption, implode('", "', $this->getAvailableFormatOptions())));
@@ -197,6 +195,7 @@ EOF
         }
     }
 
+    /** @return string[] */
     private function getAvailableFormatOptions(): array
     {
         return [

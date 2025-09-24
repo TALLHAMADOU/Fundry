@@ -23,6 +23,7 @@ final class SyncDatabaseEnvironmentVariables
     {
         tap($app->make('config'), function (Repository $config) {
             $this->usesDatabaseConnectionsEnvironmentVariables($config, 'mysql', 'MYSQL');
+            $this->usesDatabaseConnectionsEnvironmentVariables($config, 'mariadb', 'MARIADB');
             $this->usesDatabaseConnectionsEnvironmentVariables($config, 'pgsql', 'POSTGRES');
             $this->usesDatabaseConnectionsEnvironmentVariables($config, 'sqlsrv', 'MSSQL');
         });

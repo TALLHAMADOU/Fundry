@@ -24,14 +24,14 @@ class Workbench extends \Orchestra\Testbench\Workbench\Workbench
      *
      * @no-named-arguments
      *
-     * @param  array<int, mixed>|string  ...$path
+     * @param  array<int, string|null>|string  ...$path
      */
     public static function applicationPath(array|string $path = ''): string
     {
-        /** @var array<int, mixed> $path */
-        $path = Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path);
+        /** @var array<int, string|null> $paths */
+        $paths = Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path);
 
-        return base_path(join_paths(...$path));
+        return base_path(join_paths(...$paths));
     }
 
     /**
@@ -53,27 +53,31 @@ class Workbench extends \Orchestra\Testbench\Workbench\Workbench
      *
      * @no-named-arguments
      *
-     * @param  array<int, mixed>|string  ...$path
+     * @param  array<int, string|null>|string  ...$path
      */
     public static function packagePath(array|string $path = ''): string
     {
-        /** @var array<int, mixed> $path */
-        $path = Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path);
+        /** @var array<int, string|null> $paths */
+        $paths = Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path);
 
-        return package_path(...$path);
+        /** @phpstan-ignore argument.type */
+        return package_path(...$paths);
     }
 
     /**
      * Get the path to the workbench folder.
      *
      * @no-named-arguments
+     *
+     * @param  array<int, string|null>|string  ...$path
      */
     public static function path(array|string $path = ''): string
     {
-        /** @var array<int, mixed> $path */
-        $path = Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path);
+        /** @var array<int, string|null> $paths */
+        $paths = Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path);
 
-        return workbench_path(...$path);
+        /** @phpstan-ignore argument.type */
+        return workbench_path(...$paths);
     }
 
     /**

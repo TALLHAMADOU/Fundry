@@ -4,7 +4,7 @@ namespace Orchestra\Canvas;
 
 use Orchestra\Canvas\Core\Presets\Preset;
 
-use function Illuminate\Filesystem\join_paths;
+use function Orchestra\Sidekick\join_paths;
 
 class GeneratorPreset extends Preset
 {
@@ -178,12 +178,8 @@ class GeneratorPreset extends Preset
         return ! \is_null($this->canvas()->getCustomStubPath());
     }
 
-    /**
-     * Get the model for the default guard's user provider.
-     *
-     * @param  string|null  $guard
-     * @return string|null
-     */
+    /** {@inheritDoc} */
+    #[\Override]
     public function userProviderModel($guard = null)
     {
         if (\is_null($guard) || $guard === $this->app->make('config')->get('auth.defaults.guard')) {
@@ -197,8 +193,6 @@ class GeneratorPreset extends Preset
 
     /**
      * Get canvas preset.
-     *
-     * @return \Orchestra\Canvas\Presets\Preset
      */
     public function canvas(): Presets\Preset
     {

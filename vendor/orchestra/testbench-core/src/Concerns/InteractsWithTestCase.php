@@ -16,13 +16,18 @@ use Orchestra\Testbench\PHPUnit\AttributeParser;
 use function Orchestra\Testbench\laravel_or_fail;
 
 /**
- * @internal
- *
  * @phpstan-import-type TTestingFeature from \Orchestra\Testbench\PHPUnit\AttributeParser
  * @phpstan-import-type TAttributes from \Orchestra\Testbench\PHPUnit\AttributeParser
  */
 trait InteractsWithTestCase
 {
+    /**
+     * The cached application bootstrap file.
+     *
+     * @var string|null
+     */
+    protected static string|bool|null $cacheApplicationBootstrapFile = null;
+
     /**
      * The cached uses for test case.
      *
@@ -51,6 +56,8 @@ trait InteractsWithTestCase
     /**
      * Determine if the trait is using given trait (or default to \Orchestra\Testbench\Concerns\Testing trait).
      *
+     * @api
+     *
      * @param  class-string|null  $trait
      * @return bool
      */
@@ -72,6 +79,8 @@ trait InteractsWithTestCase
     /**
      * Define or get the cached uses for test case.
      *
+     * @internal
+     *
      * @return array<class-string, class-string>
      */
     public static function cachedUsesForTestCase(): array
@@ -89,11 +98,14 @@ trait InteractsWithTestCase
     /**
      * Uses testing feature (attribute) on the current test.
      *
+     * @api
+     *
      * @param  object  $attribute
      * @param  int  $flag
-     * @return void
      *
      * @phpstan-param TAttributes $attribute
+     *
+     * @return void
      */
     public static function usesTestingFeature($attribute, int $flag = Attribute::TARGET_CLASS): void
     {
@@ -136,6 +148,8 @@ trait InteractsWithTestCase
     /**
      * Prepare the testing environment before the running the test case.
      *
+     * @internal
+     *
      * @return void
      */
     protected function setUpTheTestEnvironmentUsingTestCase(): void
@@ -152,6 +166,8 @@ trait InteractsWithTestCase
 
     /**
      * Prepare the testing environment before the running the test case.
+     *
+     * @internal
      *
      * @return void
      */
@@ -172,6 +188,8 @@ trait InteractsWithTestCase
     /**
      * Prepare the testing environment before the running the test case.
      *
+     * @internal
+     *
      * @return void
      *
      * @codeCoverageIgnore
@@ -189,6 +207,8 @@ trait InteractsWithTestCase
     /**
      * Clean up the testing environment before the next test case.
      *
+     * @internal
+     *
      * @return void
      *
      * @codeCoverageIgnore
@@ -202,8 +222,7 @@ trait InteractsWithTestCase
                 $instance->afterAll();
             });
 
-        /** @phpstan-ignore-next-line */
-        static::$latestResponse = null;
         static::$testCaseTestingFeatures = [];
+        static::$cacheApplicationBootstrapFile = null;
     }
 }

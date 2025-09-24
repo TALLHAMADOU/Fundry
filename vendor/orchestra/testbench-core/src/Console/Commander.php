@@ -50,21 +50,14 @@ class Commander
      *
      * @var \Orchestra\Testbench\Foundation\Config
      */
-    protected $config;
-
-    /**
-     * Working path.
-     *
-     * @var string
-     */
-    protected $workingPath;
+    protected readonly Config $config;
 
     /**
      * The environment file name.
      *
      * @var string
      */
-    protected $environmentFile = '.env';
+    protected string $environmentFile = '.env';
 
     /**
      * The testbench implementation class.
@@ -90,10 +83,11 @@ class Commander
      *
      * @phpstan-param \Orchestra\Testbench\Foundation\Config|TConfig  $config
      */
-    public function __construct($config, string $workingPath)
-    {
+    public function __construct(
+        Config|array $config,
+        protected readonly string $workingPath
+    ) {
         $this->config = $config instanceof Config ? $config : new Config($config);
-        $this->workingPath = $workingPath;
 
         $_ENV['TESTBENCH_ENVIRONMENT_FILENAME'] = $this->environmentFile;
     }
@@ -103,7 +97,7 @@ class Commander
      *
      * @return void
      */
-    public function handle()
+    public function handle(): void
     {
         $input = new ArgvInput;
         $output = new ConsoleOutput;
@@ -122,7 +116,7 @@ class Commander
         } finally {
             TerminatingConsole::handle();
             Workbench::flush();
-            static::$testbench::flushState();
+            static::$testbench::flushState($this);
 
             $this->untrap();
         }
@@ -179,7 +173,7 @@ class Commander
     }
 
     /**
-     * Resolve application implementation.
+     * Resolve application implementation callback.
      *
      * @return \Closure(\Illuminate\Foundation\Application): void
      */
@@ -209,7 +203,7 @@ class Commander
     {
         $path = $this->config['laravel'] ?? null;
 
-        if (! \is_null($path)) {
+        if (! \is_null($path) && ! isset($_ENV['APP_BASE_PATH'])) {
             return tap(transform_relative_path($path, $this->workingPath), static function ($path) {
                 $_ENV['APP_BASE_PATH'] = $path;
             });
@@ -237,7 +231,7 @@ class Commander
      * @param  \Throwable  $error
      * @return int
      */
-    protected function handleException(OutputInterface $output, Throwable $error)
+    protected function handleException(OutputInterface $output, Throwable $error): int
     {
         if ($this->app instanceof LaravelApplication) {
             tap($this->app->make(ExceptionHandler::class), static function ($handler) use ($error, $output) {
@@ -263,7 +257,7 @@ class Commander
         Signals::whenAvailable(function () {
             $this->signals ??= new Signals(new SignalRegistry);
 
-            Collection::make(Arr::wrap([SIGTERM, SIGINT, SIGHUP, SIGUSR1, SIGUSR2, SIGQUIT]))
+            (new Collection(Arr::wrap([SIGTERM, SIGINT, SIGHUP, SIGUSR1, SIGUSR2, SIGQUIT])))
                 ->each(
                     fn ($signal) => $this->signals->register($signal, function () use ($signal) {
                         TerminatingConsole::handle();
