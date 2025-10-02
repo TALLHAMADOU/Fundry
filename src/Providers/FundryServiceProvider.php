@@ -3,10 +3,6 @@
 namespace Hamadou\Fundry\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Hamadou\Fundry\Fundry;
-use Hamadou\Fundry\Services\CurrencyService;
-use Hamadou\Fundry\Services\WalletService;
-use Hamadou\Fundry\Services\TransactionService;
 use Hamadou\Fundry\Console\Commands\FundryReportCommand;
 use Hamadou\Fundry\Console\Commands\FundryCurrenciesCommand;
 use Hamadou\Fundry\Console\Commands\FundryCashCommand;
@@ -21,33 +17,38 @@ class FundryServiceProvider extends ServiceProvider
             __DIR__.'/../config/fundry.php', 'fundry'
         );
 
-        $this->app->singleton('fundry', function ($app) {
-            return new Fundry(
-                $app->make(CurrencyService::class),
-                $app->make(WalletService::class),
-                $app->make(TransactionService::class)
-            );
-        });
+    $this->app->singleton(\Hamadou\Fundry\Fundry::class, function ($app) {
+        return new \Hamadou\Fundry\Fundry(
+            $app->make(\Hamadou\Fundry\Contracts\CurrencyServiceInterface::class),
+            $app->make(\Hamadou\Fundry\Contracts\WalletServiceInterface::class),
+            $app->make(\Hamadou\Fundry\Contracts\TransactionServiceInterface::class)
+        );
+    });
 
-        $this->app->bind(CurrencyService::class);
-        $this->app->bind(WalletService::class);
-        $this->app->bind(TransactionService::class);
-    }
+
+    $this->app->alias(\Hamadou\Fundry\Fundry::class, 'fundry');
+    $this->app->bind(\Hamadou\Fundry\Contracts\CurrencyServiceInterface::class, \Hamadou\Fundry\Services\CurrencyService::class);
+    $this->app->bind(\Hamadou\Fundry\Contracts\WalletServiceInterface::class, \Hamadou\Fundry\Services\WalletService::class);
+    $this->app->bind(\Hamadou\Fundry\Contracts\TransactionServiceInterface::class, \Hamadou\Fundry\Services\TransactionService::class);
+      
+}
 
     public function boot()
     {
         if ($this->app->runningInConsole()) {
-            // Publier la configuration
+           
+           
             $this->publishes([
                 __DIR__.'/../config/fundry.php' => config_path('fundry.php'),
             ], ['fundry', 'fundry-config']);
 
-            // Publier les migrations
+          
             $this->publishes([
                 __DIR__.'/../database/migrations' => database_path('migrations'),
             ], ['fundry', 'fundry-migrations']);
 
-            // Enregistrer les commandes
+           
+           
             $this->commands([
                 FundryInstallCommand::class,
                 FundryCurrenciesCommand::class,
@@ -57,7 +58,6 @@ class FundryServiceProvider extends ServiceProvider
             ]);
         }
 
-        // Charger les migrations
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 }

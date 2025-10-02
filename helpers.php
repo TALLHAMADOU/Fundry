@@ -1,41 +1,43 @@
 <?php
 
 use Hamadou\Fundry\Facades\Fundry;
-use Hamadou\Fundry\Models\Wallet;
-use Hamadou\Fundry\Models\Currency;
 
+/**
+ * Accès rapide à l'instance Fundry.
+ *
+ * @return \Hamadou\Fundry\Fundry
+ */
 if (!function_exists('fundry')) {
-    function fundry(): Hamadou\Fundry\Fundry
+    function fundry(): \Hamadou\Fundry\Fundry
     {
-        return app('fundry');
+        return Fundry::getFacadeRoot();
     }
 }
 
-if (!function_exists('currency')) {
-    function currency(string $code): ?Currency
+/**
+ * Formate un montant avec sa devise.
+ *
+ * @param float $amount
+ * @param string $currencyCode
+ * @return string
+ */
+if (!function_exists('format_currency')) {
+    function format_currency(float $amount, string $currencyCode = 'USD'): string
     {
-        return Currency::where('code', $code)->active()->first();
+        return number_format($amount, 2) . ' ' . strtoupper($currencyCode);
     }
 }
 
-if (!function_exists('format_money')) {
-    function format_money(float $amount, string $currencyCode): string
+/**
+ * Vérifie si un portefeuille peut effectuer un retrait.
+ *
+ * @param \Hamadou\Fundry\Models\Wallet $wallet
+ * @param float $amount
+ * @return bool
+ */
+if (!function_exists('can_withdraw')) {
+    function can_withdraw(\Hamadou\Fundry\Models\Wallet $wallet, float $amount): bool
     {
-        $currency = currency($currencyCode);
-        return $currency ? $currency->getFormattedAmount($amount) : number_format($amount, 2);
-    }
-}
-
-if (!function_exists('convert_currency')) {
-    function convert_currency(float $amount, string $from, string $to): ?float
-    {
-        return fundry()->convertCurrency($amount, $from, $to);
-    }
-}
-
-if (!function_exists('get_wallet')) {
-    function get_wallet($user, string $currencyCode): ?Wallet
-    {
-        return $user->getWalletByCurrency($currencyCode);
+        return $wallet->canWithdraw($amount);
     }
 }

@@ -2,22 +2,24 @@
 
 namespace Hamadou\Fundry\Services;
 
-use Hamadou\Fundry\Models\Transaction;
 use Hamadou\Fundry\Models\Wallet;
+use Hamadou\Fundry\Models\Transaction;
 use Hamadou\Fundry\Enums\TransactionType;
 use Hamadou\Fundry\Enums\TransactionStatus;
+use Hamadou\Fundry\Events\TransactionCreated;
+use Hamadou\Fundry\Exceptions\InsufficientFundsException;
+use Hamadou\Fundry\Exceptions\ConcurrencyException;
+use Hamadou\Fundry\Utils\Money;
 use Illuminate\Support\Facades\DB;
 
 class TransactionService
 {
     public function createTransaction(array $data): Transaction
     {
-        return DB::transaction(function () use ($data) {
-            return Transaction::create($data);
-        });
+        return DB::transaction(fn() => Transaction::create($data));
     }
 
-    public function processDeposit(Wallet $wallet, float $amount, string $description = null): Transaction
+    public function processDeposit(Wallet $wallet, float $amount, ?string $description = null): Transaction
     {
         return DB::transaction(function () use ($wallet, $amount, $description) {
             $transaction = Transaction::create([
@@ -32,21 +34,26 @@ class TransactionService
 
             try {
                 $wallet->deposit($amount);
-                $transaction->markAsCompleted();
-                return $transaction;
+                $transaction->status = TransactionStatus::COMPLETED;
+                $transaction->save();
 
+                event(new TransactionCreated($transaction));
+
+                return $transaction;
             } catch (\Exception $e) {
-                $transaction->markAsFailed($e->getMessage());
-                throw $e;
+                $transaction->status = TransactionStatus::FAILED;
+                $transaction->save();
+
+                throw new ConcurrencyException($e->getMessage());
             }
         });
     }
 
-    public function processWithdrawal(Wallet $wallet, float $amount, string $description = null): Transaction
+    public function processWithdrawal(Wallet $wallet, float $amount, ?string $description = null): Transaction
     {
         return DB::transaction(function () use ($wallet, $amount, $description) {
             if (!$wallet->canWithdraw($amount)) {
-                throw new \Exception('Fonds insuffisants ou limites dépassées');
+                throw new InsufficientFundsException('Fonds insuffisants ou limites dépassées');
             }
 
             $transaction = Transaction::create([
@@ -61,12 +68,17 @@ class TransactionService
 
             try {
                 $wallet->withdraw($amount);
-                $transaction->markAsCompleted();
-                return $transaction;
+                $transaction->status = TransactionStatus::COMPLETED;
+                $transaction->save();
 
+                event(new TransactionCreated($transaction));
+
+                return $transaction;
             } catch (\Exception $e) {
-                $transaction->markAsFailed($e->getMessage());
-                throw $e;
+                $transaction->status = TransactionStatus::FAILED;
+                $transaction->save();
+
+                throw new ConcurrencyException($e->getMessage());
             }
         });
     }
@@ -80,36 +92,23 @@ class TransactionService
     {
         $query = Transaction::where('user_id', $userId);
 
-        if (isset($filters['type'])) {
-            $query->where('type', $filters['type']);
-        }
-
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (isset($filters['start_date'])) {
-            $query->where('created_at', '>=', $filters['start_date']);
-        }
-
-        if (isset($filters['end_date'])) {
-            $query->where('created_at', '<=', $filters['end_date']);
-        }
+        if (isset($filters['type'])) $query->where('type', $filters['type']);
+        if (isset($filters['status'])) $query->where('status', $filters['status']);
+        if (isset($filters['start_date'])) $query->whereDate('created_at', '>=', $filters['start_date']);
+        if (isset($filters['end_date'])) $query->whereDate('created_at', '<=', $filters['end_date']);
 
         return $query->with(['fromWallet', 'toWallet', 'currency'])
-                    ->orderBy('created_at', 'desc')
-                    ->limit($limit)
-                    ->get();
+                     ->orderBy('created_at', 'desc')
+                     ->limit($limit)
+                     ->get();
     }
 
     public function calculateDailyVolume($userId, string $currencyCode): float
     {
         return Transaction::where('user_id', $userId)
-            ->whereHas('currency', function ($query) use ($currencyCode) {
-                $query->where('code', $currencyCode);
-            })
+            ->whereHas('currency', fn($q) => $q->where('code', $currencyCode))
             ->whereDate('created_at', today())
-            ->completed()
+            ->where('status', TransactionStatus::COMPLETED)
             ->sum('amount');
     }
 }
