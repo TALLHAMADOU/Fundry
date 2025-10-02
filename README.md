@@ -1,11 +1,10 @@
-Fundry
+##Fundry
 
 Fundry est un package Laravel destiné à simplifier la gestion de portefeuilles virtuels, de transactions et de devises. Il fournit des services et des commandes Artisan pour gérer les portefeuilles de type cash ou crypto, et permet d’exporter les données financières en PDF ou Excel. Après installation, vous disposerez notamment de modèles Eloquent (Wallet, Transaction, Currency) pour gérer vos utilisateurs et leurs portefeuilles, ainsi que de limites par défaut configurables (soldes max, plafonds journaliers, etc.) via le fichier de configuration config/fundry.php.
 Installation
 
 Suivez ces étapes pour installer Fundry dans votre projet Laravel :
-
-    Ajouter le package via Composer et charger le provider :
+ Ajouter le package via Composer et charger le provider :
 
 composer require hamadou/fundry
 
