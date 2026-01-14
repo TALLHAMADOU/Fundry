@@ -4,6 +4,8 @@ namespace Hamadou\Fundry\Contracts;
 
 use Hamadou\Fundry\Models\Transaction;
 use Hamadou\Fundry\Models\Wallet;
+use Hamadou\Fundry\DTOs\DepositDTO;
+use Hamadou\Fundry\DTOs\WithdrawalDTO;
 
 interface TransactionServiceInterface
 {
@@ -34,6 +36,22 @@ interface TransactionServiceInterface
      * @return Transaction
      */
     public function processWithdrawal(Wallet $wallet, float $amount, string $description = null): Transaction;
+
+    /**
+     * Traite un dépôt avec un DTO.
+     *
+     * @param DepositDTO $dto
+     * @return Transaction
+     */
+    public function processDepositWithDTO(DepositDTO $dto): Transaction;
+
+    /**
+     * Traite un retrait avec un DTO.
+     *
+     * @param WithdrawalDTO $dto
+     * @return Transaction
+     */
+    public function processWithdrawalWithDTO(WithdrawalDTO $dto): Transaction;
 
     /**
      * Récupère une transaction par sa référence unique.

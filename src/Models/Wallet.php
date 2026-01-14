@@ -106,4 +106,13 @@ class Wallet extends Model
     {
         return $this->currency->getFormattedAmount($this->balance);
     }
+
+    /**
+     * Vérifie si le wallet appartient à un utilisateur
+     */
+    public function belongsToUser($user): bool
+    {
+        $userId = is_object($user) ? $user->id : $user;
+        return $this->user_id == $userId;
+    }
 }

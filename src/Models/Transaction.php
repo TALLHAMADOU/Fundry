@@ -51,7 +51,8 @@ class Transaction extends Model
                 $model->id = (string) \Illuminate\Support\Str::uuid();
             }
             if (empty($model->reference)) {
-                $model->reference = 'TXN' . now()->format('YmdHis') . rand(1000, 9999);
+                // Génération d'une référence unique : TXN + timestamp + UUID court
+                $model->reference = 'TXN' . now()->format('YmdHis') . strtoupper(substr(str_replace('-', '', $model->id), 0, 8));
             }
         });
     }

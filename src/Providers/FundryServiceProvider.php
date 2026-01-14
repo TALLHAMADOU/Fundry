@@ -8,6 +8,9 @@ use Hamadou\Fundry\Console\Commands\FundryCurrenciesCommand;
 use Hamadou\Fundry\Console\Commands\FundryCashCommand;
 use Hamadou\Fundry\Console\Commands\FundryCryptoCommand;
 use Hamadou\Fundry\Console\Commands\FundryInstallCommand;
+use Hamadou\Fundry\Console\Commands\FundrySyncCountriesCommand;
+use Hamadou\Fundry\Console\Commands\FundryValidateCurrenciesCommand;
+use Hamadou\Fundry\Console\Commands\FundryUpdateRatesCommand;
 
 class FundryServiceProvider extends ServiceProvider
 {
@@ -17,19 +20,21 @@ class FundryServiceProvider extends ServiceProvider
             __DIR__.'/../config/fundry.php', 'fundry'
         );
 
-    $this->app->singleton(\Hamadou\Fundry\Fundry::class, function ($app) {
-        return new \Hamadou\Fundry\Fundry(
-            $app->make(\Hamadou\Fundry\Contracts\CurrencyServiceInterface::class),
-            $app->make(\Hamadou\Fundry\Contracts\WalletServiceInterface::class),
-            $app->make(\Hamadou\Fundry\Contracts\TransactionServiceInterface::class)
-        );
-    });
-
-
-    $this->app->alias(\Hamadou\Fundry\Fundry::class, 'fundry');
+    // Bind interfaces to implementations
     $this->app->bind(\Hamadou\Fundry\Contracts\CurrencyServiceInterface::class, \Hamadou\Fundry\Services\CurrencyService::class);
     $this->app->bind(\Hamadou\Fundry\Contracts\WalletServiceInterface::class, \Hamadou\Fundry\Services\WalletService::class);
     $this->app->bind(\Hamadou\Fundry\Contracts\TransactionServiceInterface::class, \Hamadou\Fundry\Services\TransactionService::class);
+
+    // Register Fundry as singleton
+    $this->app->singleton(\Hamadou\Fundry\Fundry::class, function ($app) {
+        return new \Hamadou\Fundry\Fundry(
+            $app->make(\Hamadou\Fundry\Contracts\WalletServiceInterface::class),
+            $app->make(\Hamadou\Fundry\Contracts\TransactionServiceInterface::class),
+            $app->make(\Hamadou\Fundry\Contracts\CurrencyServiceInterface::class)
+        );
+    });
+
+    $this->app->alias(\Hamadou\Fundry\Fundry::class, 'fundry');
       
 }
 
@@ -44,7 +49,7 @@ class FundryServiceProvider extends ServiceProvider
 
           
             $this->publishes([
-                __DIR__.'/../database/migrations' => database_path('migrations'),
+                __DIR__.'/../../database/migrations' => database_path('migrations'),
             ], ['fundry', 'fundry-migrations']);
 
            
@@ -55,9 +60,12 @@ class FundryServiceProvider extends ServiceProvider
                 FundryCashCommand::class,
                 FundryCryptoCommand::class,
                 FundryReportCommand::class,
+                FundrySyncCountriesCommand::class,
+                FundryValidateCurrenciesCommand::class,
+                FundryUpdateRatesCommand::class,
             ]);
         }
 
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
     }
 }

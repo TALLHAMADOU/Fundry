@@ -2,24 +2,27 @@
 
 namespace Hamadou\Fundry;
 
-use Hamadou\Fundry\Services\WalletService;
-use Hamadou\Fundry\Services\TransactionService;
-use Hamadou\Fundry\Services\CurrencyService;
+use Hamadou\Fundry\Contracts\WalletServiceInterface;
+use Hamadou\Fundry\Contracts\TransactionServiceInterface;
+use Hamadou\Fundry\Contracts\CurrencyServiceInterface;
 use Hamadou\Fundry\Models\Wallet;
 use Hamadou\Fundry\Models\Transaction;
+use Hamadou\Fundry\DTOs\DepositDTO;
+use Hamadou\Fundry\DTOs\WithdrawalDTO;
+use Hamadou\Fundry\DTOs\TransferDTO;
 use Hamadou\Fundry\Exceptions\InsufficientFundsException;
 use Hamadou\Fundry\Exceptions\ConcurrencyException;
 
 class Fundry
 {
-    protected WalletService $walletService;
-    protected TransactionService $transactionService;
-    protected CurrencyService $currencyService;
+    protected WalletServiceInterface $walletService;
+    protected TransactionServiceInterface $transactionService;
+    protected CurrencyServiceInterface $currencyService;
 
     public function __construct(
-        WalletService $walletService,
-        TransactionService $transactionService,
-        CurrencyService $currencyService
+        WalletServiceInterface $walletService,
+        TransactionServiceInterface $transactionService,
+        CurrencyServiceInterface $currencyService
     ) {
         $this->walletService = $walletService;
         $this->transactionService = $transactionService;
@@ -50,6 +53,11 @@ class Fundry
         return $this->walletService->transfer($fromWallet, $toWallet, $amount, $description);
     }
 
+    public function transferWithDTO(TransferDTO $dto): Transaction
+    {
+        return $this->walletService->transferWithDTO($dto);
+    }
+
     // =====================
     // Transactions
     // =====================
@@ -59,9 +67,19 @@ class Fundry
         return $this->transactionService->processDeposit($wallet, $amount, $description);
     }
 
+    public function depositWithDTO(DepositDTO $dto): Transaction
+    {
+        return $this->transactionService->processDepositWithDTO($dto);
+    }
+
     public function withdraw(Wallet $wallet, float $amount, ?string $description = null): Transaction
     {
         return $this->transactionService->processWithdrawal($wallet, $amount, $description);
+    }
+
+    public function withdrawWithDTO(WithdrawalDTO $dto): Transaction
+    {
+        return $this->transactionService->processWithdrawalWithDTO($dto);
     }
 
     public function getTransactionByReference(string $reference): ?Transaction

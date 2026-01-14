@@ -61,10 +61,34 @@ return [
     |--------------------------------------------------------------------------
     |
     | The service to use for fetching exchange rates.
-    | Options: 'manual', 'api' (future implementation)
+    | Options: 'manual', 'exchangerate-api'
     |
     */
     'exchange_rate_provider' => env('FUNDRY_EXCHANGE_RATE_PROVIDER', 'manual'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Exchange Rate API Key
+    |--------------------------------------------------------------------------
+    |
+    | API key for external exchange rate providers.
+    |
+    */
+    'exchange_rate_api_key' => env('FUNDRY_EXCHANGE_RATE_API_KEY', null),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Settings
+    |--------------------------------------------------------------------------
+    |
+    | Cache configuration for currencies and exchange rates.
+    |
+    */
+    'cache' => [
+        'enabled' => env('FUNDRY_CACHE_ENABLED', true),
+        'ttl' => env('FUNDRY_CACHE_TTL', 3600), // 1 hour in seconds
+        'prefix' => 'fundry',
+    ],
 
     /*
     |--------------------------------------------------------------------------

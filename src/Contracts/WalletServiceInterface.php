@@ -4,6 +4,7 @@ namespace Hamadou\Fundry\Contracts;
 
 use Hamadou\Fundry\Models\Wallet;
 use Hamadou\Fundry\Models\Transaction;
+use Hamadou\Fundry\DTOs\TransferDTO;
 
 interface WalletServiceInterface
 {
@@ -26,6 +27,14 @@ interface WalletServiceInterface
      * @return Transaction
      */
     public function transfer(Wallet $fromWallet, Wallet $toWallet, float $amount, string $description = null): Transaction;
+
+    /**
+     * Effectue un transfert avec un DTO.
+     *
+     * @param TransferDTO $dto
+     * @return Transaction
+     */
+    public function transferWithDTO(TransferDTO $dto): Transaction;
 
     /**
      * Retourne le solde actuel d'un portefeuille.

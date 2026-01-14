@@ -4,15 +4,19 @@ namespace Hamadou\Fundry\Services;
 
 use Hamadou\Fundry\Models\Wallet;
 use Hamadou\Fundry\Models\Transaction;
+use Hamadou\Fundry\DTOs\DepositDTO;
+use Hamadou\Fundry\DTOs\WithdrawalDTO;
 use Hamadou\Fundry\Enums\TransactionType;
 use Hamadou\Fundry\Enums\TransactionStatus;
 use Hamadou\Fundry\Events\TransactionCreated;
 use Hamadou\Fundry\Exceptions\InsufficientFundsException;
 use Hamadou\Fundry\Exceptions\ConcurrencyException;
-use Hamadou\Fundry\Utils\Money;
+use Hamadou\Fundry\Exceptions\UnauthorizedWalletException;
+use Hamadou\Fundry\Exceptions\InvalidAmountException;
+use Hamadou\Fundry\Contracts\TransactionServiceInterface;
 use Illuminate\Support\Facades\DB;
 
-class TransactionService
+class TransactionService implements TransactionServiceInterface
 {
     public function createTransaction(array $data): Transaction
     {
@@ -21,20 +25,61 @@ class TransactionService
 
     public function processDeposit(Wallet $wallet, float $amount, ?string $description = null): Transaction
     {
-        return DB::transaction(function () use ($wallet, $amount, $description) {
+        // Créer un DTO depuis les paramètres pour compatibilité ascendante
+        $dto = new DepositDTO(
+            userId: $wallet->user_id,
+            walletId: $wallet->id,
+            amount: $amount,
+            description: $description
+        );
+
+        return $this->processDepositWithDTO($dto);
+    }
+
+    public function processDepositWithDTO(DepositDTO $dto): Transaction
+    {
+        return DB::transaction(function () use ($dto) {
+            // Vérifier que le wallet appartient à l'utilisateur
+            $wallet = Wallet::lockForUpdate()->findOrFail($dto->walletId);
+            
+            if ($wallet->user_id != $dto->userId) {
+                throw new UnauthorizedWalletException('Ce portefeuille ne vous appartient pas');
+            }
+
+            // Valider le montant
+            $this->validateAmount($dto->amount);
+
+            // Calculer le montant net après commission
+            $netAmount = $dto->getNetAmount();
+            $commissionAmount = $dto->getCommissionAmount();
+
+            // Vérifier la limite max_balance si définie
+            if ($wallet->max_balance !== null && ($wallet->balance + $netAmount) > $wallet->max_balance) {
+                throw new InvalidAmountException('Le dépôt dépasse la limite maximale du portefeuille');
+            }
+
             $transaction = Transaction::create([
-                'user_id' => $wallet->user_id,
-                'to_wallet_id' => $wallet->id,
+                'user_id' => $dto->userId,
+                'to_wallet_id' => $dto->walletId,
                 'currency_id' => $wallet->currency_id,
                 'type' => TransactionType::DEPOSIT,
-                'amount' => $amount,
-                'description' => $description,
+                'amount' => $netAmount,
+                'description' => $dto->description,
                 'status' => TransactionStatus::PENDING,
+                'metadata' => array_merge($dto->metadata ?? [], [
+                    'commission_percentage' => $dto->commissionPercentage,
+                    'commission_amount' => $commissionAmount,
+                    'gross_amount' => $dto->amount,
+                ]),
             ]);
 
             try {
-                $wallet->deposit($amount);
+                // Dépôt du montant net
+                $wallet->deposit($netAmount);
+                $wallet->save();
+
                 $transaction->status = TransactionStatus::COMPLETED;
+                $transaction->completed_at = now();
                 $transaction->save();
 
                 event(new TransactionCreated($transaction));
@@ -42,33 +87,71 @@ class TransactionService
                 return $transaction;
             } catch (\Exception $e) {
                 $transaction->status = TransactionStatus::FAILED;
+                $transaction->failed_at = now();
                 $transaction->save();
 
-                throw new ConcurrencyException($e->getMessage());
+                throw new ConcurrencyException('Impossible de déposer les fonds : ' . $e->getMessage());
             }
         });
     }
 
     public function processWithdrawal(Wallet $wallet, float $amount, ?string $description = null): Transaction
     {
-        return DB::transaction(function () use ($wallet, $amount, $description) {
-            if (!$wallet->canWithdraw($amount)) {
+        // Créer un DTO depuis les paramètres pour compatibilité ascendante
+        $dto = new WithdrawalDTO(
+            userId: $wallet->user_id,
+            walletId: $wallet->id,
+            amount: $amount,
+            description: $description
+        );
+
+        return $this->processWithdrawalWithDTO($dto);
+    }
+
+    public function processWithdrawalWithDTO(WithdrawalDTO $dto): Transaction
+    {
+        return DB::transaction(function () use ($dto) {
+            // Vérifier que le wallet appartient à l'utilisateur avec verrou
+            $wallet = Wallet::lockForUpdate()->findOrFail($dto->walletId);
+            
+            if ($wallet->user_id != $dto->userId) {
+                throw new UnauthorizedWalletException('Ce portefeuille ne vous appartient pas');
+            }
+
+            // Valider le montant
+            $this->validateAmount($dto->amount);
+
+            // Calculer le montant total à débiter (montant + commission)
+            $totalAmount = $dto->getTotalAmount();
+            $commissionAmount = $dto->getCommissionAmount();
+
+            // Vérifier si le retrait est possible
+            if (!$wallet->canWithdraw($totalAmount)) {
                 throw new InsufficientFundsException('Fonds insuffisants ou limites dépassées');
             }
 
             $transaction = Transaction::create([
-                'user_id' => $wallet->user_id,
-                'from_wallet_id' => $wallet->id,
+                'user_id' => $dto->userId,
+                'from_wallet_id' => $dto->walletId,
                 'currency_id' => $wallet->currency_id,
                 'type' => TransactionType::WITHDRAWAL,
-                'amount' => $amount,
-                'description' => $description,
+                'amount' => $dto->amount, // Montant net retiré
+                'description' => $dto->description,
                 'status' => TransactionStatus::PENDING,
+                'metadata' => array_merge($dto->metadata ?? [], [
+                    'commission_percentage' => $dto->commissionPercentage,
+                    'commission_amount' => $commissionAmount,
+                    'total_debited' => $totalAmount,
+                ]),
             ]);
 
             try {
-                $wallet->withdraw($amount);
+                // Retrait du montant total (montant + commission)
+                $wallet->withdraw($totalAmount);
+                $wallet->save();
+
                 $transaction->status = TransactionStatus::COMPLETED;
+                $transaction->completed_at = now();
                 $transaction->save();
 
                 event(new TransactionCreated($transaction));
@@ -76,11 +159,28 @@ class TransactionService
                 return $transaction;
             } catch (\Exception $e) {
                 $transaction->status = TransactionStatus::FAILED;
+                $transaction->failed_at = now();
                 $transaction->save();
 
-                throw new ConcurrencyException($e->getMessage());
+                throw new ConcurrencyException('Impossible de retirer les fonds : ' . $e->getMessage());
             }
         });
+    }
+
+    /**
+     * Valide un montant
+     */
+    private function validateAmount(float $amount): void
+    {
+        if ($amount <= 0) {
+            throw new InvalidAmountException('Le montant doit être supérieur à zéro');
+        }
+
+        // Vérifier la précision (max 8 décimales)
+        $decimals = strlen(substr(strrchr((string) $amount, '.'), 1));
+        if ($decimals > 8) {
+            throw new InvalidAmountException('Le montant ne peut pas avoir plus de 8 décimales');
+        }
     }
 
     public function getTransactionByReference(string $reference): ?Transaction
