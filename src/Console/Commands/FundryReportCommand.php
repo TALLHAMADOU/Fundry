@@ -5,7 +5,6 @@ namespace Hamadou\Fundry\Console\Commands;
 use Hamadou\Fundry\Exports\FundryExport;
 use Illuminate\Console\Command;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Hamadou\Fundry\Models\Transaction;
 use Illuminate\Database\Eloquent\Builder;
 use Hamadou\Fundry\Models\Wallet;
@@ -131,7 +130,11 @@ class FundryReportCommand extends Command
 
     private function generatePdf($type, $data, $filePath)
     {
-        $pdf = Pdf::loadView("fundry::reports.{$type}", [
+        if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            throw new \RuntimeException('PDF generation requires barryvdh/laravel-dompdf. Install it with: composer require barryvdh/laravel-dompdf (Laravel 10-11 only, Laravel 12 not yet supported)');
+        }
+        
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView("fundry::reports.{$type}", [
             'data' => $data,
             'filters' => $this->options(),
             'generatedAt' => now()->format('d/m/Y H:i:s')

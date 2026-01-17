@@ -17,8 +17,10 @@
         "illuminate/support": "^10.0|^11.0|^12.0",
         "illuminate/database": "^10.0|^11.0|^12.0",
         "illuminate/console": "^10.0|^11.0|^12.0",
-        "barryvdh/laravel-dompdf": "^2.0",
         "maatwebsite/excel": "^3.1"
+    },
+    "suggest": {
+        "barryvdh/laravel-dompdf": "^2.0 For PDF report generation (Laravel 10-11 only). For Laravel 12, PDF generation may not be available until dompdf supports it."
     },
     "autoload": {
         "psr-4": {
