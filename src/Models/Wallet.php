@@ -81,10 +81,25 @@ class Wallet extends Model
     // Méthodes métier
     public function canWithdraw($amount): bool
     {
-        return $this->balance >= $amount && 
-               $this->is_active &&
-               ($this->min_balance === null || ($this->balance - $amount) >= $this->min_balance) &&
-               ($this->transaction_limit === null || $amount <= $this->transaction_limit);
+        $balance = (float) $this->balance;
+        $amount = (float) $amount;
+
+        $isActive = $this->is_active;
+        if ($isActive === false || $isActive === 0 || $balance < $amount) {
+            return false;
+        }
+
+        $minBalance = $this->min_balance !== null ? (float) $this->min_balance : null;
+        if ($minBalance !== null && $minBalance > 0 && ($balance - $amount) < $minBalance) {
+            return false;
+        }
+
+        $txLimit = $this->transaction_limit !== null ? (float) $this->transaction_limit : null;
+        if ($txLimit !== null && $txLimit > 0 && $amount > $txLimit) {
+            return false;
+        }
+
+        return true;
     }
 
     public function deposit($amount): void

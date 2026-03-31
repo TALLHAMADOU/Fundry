@@ -107,7 +107,7 @@ function remote(Closure|array|string $command, array|string $env = [], ?bool $tt
         package_path(), $env, $tty
     );
 
-    $binary = \defined('TESTBENCH_DUSK') ? 'testbench-dusk' : 'testbench';
+    $binary = Sidekick\is_testbench_cli(dusk: true) ? 'testbench-dusk' : 'testbench';
 
     $commander = is_file($vendorBinary = package_path('vendor', 'bin', $binary))
         ? $vendorBinary
@@ -117,40 +117,20 @@ function remote(Closure|array|string $command, array|string $env = [], ?bool $tt
 }
 
 /**
- * Run callback only once.
- *
- * @api
- *
- * @param  mixed  $callback
- * @return \Closure():mixed
- *
- * @deprecated 7.55.0 Use `Orchestra\Sidekick\once()` instead.
- *
- * @codeCoverageIgnore
- */
-#[\Deprecated(message: 'Use `Orchestra\Sidekick\once()` instead', since: '7.55.0')]
-function once($callback): Closure
-{
-    return Sidekick\once($callback);
-}
-
-/**
  * Register after resolving callback.
  *
  * @api
  *
- * @param  \Illuminate\Contracts\Foundation\Application  $app
- * @param  string  $name
- * @param  (\Closure(object, \Illuminate\Contracts\Foundation\Application):(mixed))|null  $callback
+ * @template TLaravel of \Illuminate\Contracts\Foundation\Application
+ *
+ * @param  TLaravel  $app
+ * @param  class-string|string  $name
+ * @param  (\Closure(object, TLaravel):(mixed))|null  $callback
  * @return void
  */
 function after_resolving(ApplicationContract $app, string $name, ?Closure $callback = null): void
 {
-    $app->afterResolving($name, $callback);
-
-    if ($app->resolved($name)) {
-        value($callback, $app->make($name), $app);
-    }
+    Sidekick\after_resolving($app, $name, $callback);
 }
 
 /**
@@ -257,25 +237,6 @@ function transform_realpath_to_relative(string $path, ?string $workingPath = nul
 }
 
 /**
- * Transform relative path.
- *
- * @api
- *
- * @param  string  $path
- * @param  string  $workingPath
- * @return string
- *
- * @deprecated 7.55.0 Use `Orchestra\Sidekick\transform_relative_path()` instead.
- *
- * @codeCoverageIgnore
- */
-#[\Deprecated(message: 'Use `Orchestra\Sidekick\transform_relative_path()` instead', since: '7.55.0')]
-function transform_relative_path(string $path, string $workingPath): string
-{
-    return Sidekick\transform_relative_path($path, $workingPath);
-}
-
-/**
  * Get the default skeleton path.
  *
  * @api
@@ -288,7 +249,7 @@ function transform_relative_path(string $path, string $workingPath): string
 function default_skeleton_path(array|string $path = ''): string|false
 {
     return realpath(
-        Sidekick\join_paths(__DIR__, '..', 'laravel', ...Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path))
+        Sidekick\Filesystem\join_paths(__DIR__, '..', 'laravel', ...Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path))
     );
 }
 
@@ -302,7 +263,7 @@ function uses_default_skeleton(?string $basePath = null): bool
 {
     $basePath ??= base_path();
 
-    return realpath(Sidekick\join_paths($basePath, 'bootstrap', '.testbench-default-skeleton')) !== false;
+    return realpath(Sidekick\Filesystem\join_paths($basePath, 'bootstrap', '.testbench-default-skeleton')) !== false;
 }
 
 /**
@@ -318,7 +279,7 @@ function uses_default_skeleton(?string $basePath = null): bool
 function default_migration_path(?string $type = null): string
 {
     $path = realpath(
-        \is_null($type) ? base_path('migrations') : base_path(Sidekick\join_paths('migrations', $type))
+        \is_null($type) ? base_path('migrations') : base_path(Sidekick\Filesystem\join_paths('migrations', $type))
     );
 
     if ($path === false) {
@@ -342,19 +303,17 @@ function package_path(array|string $path = ''): string
 {
     $argumentCount = \func_num_args();
 
-    $workingPath = \defined('TESTBENCH_WORKING_PATH')
-        ? TESTBENCH_WORKING_PATH
-        : Sidekick\Env::get('TESTBENCH_WORKING_PATH', getcwd());
+    $workingPath = Sidekick\package_path();
 
     if ($argumentCount === 1 && \is_string($path) && str_starts_with($path, './')) {
         return Sidekick\transform_relative_path($path, $workingPath);
     }
 
-    $path = Sidekick\join_paths(...Arr::wrap($argumentCount > 1 ? \func_get_args() : $path));
+    $path = Sidekick\Filesystem\join_paths(...Arr::wrap($argumentCount > 1 ? \func_get_args() : $path));
 
     return str_starts_with($path, './')
         ? Sidekick\transform_relative_path($path, $workingPath)
-        : Sidekick\join_paths(rtrim($workingPath, DIRECTORY_SEPARATOR), $path);
+        : Sidekick\Filesystem\join_paths(rtrim($workingPath, DIRECTORY_SEPARATOR), $path);
 }
 
 /**
@@ -390,26 +349,6 @@ function workbench_path(array|string $path = ''): string
 }
 
 /**
- * Get the migration path by type.
- *
- * @api
- *
- * @param  string|null  $type
- * @return string
- *
- * @throws \InvalidArgumentException
- *
- * @deprecated
- *
- * @codeCoverageIgnore
- */
-#[\Deprecated(message: 'Use `Orchestra\Testbench\default_migration_path()` instead', since: '9.5.1')]
-function laravel_migration_path(?string $type = null): string
-{
-    return default_migration_path($type);
-}
-
-/**
  * Determine if vendor symlink exists on the laravel application.
  *
  * @api
@@ -425,8 +364,8 @@ function laravel_vendor_exists(ApplicationContract $app, ?string $workingPath = 
     $appVendorPath = $app->basePath('vendor');
     $workingPath ??= package_path('vendor');
 
-    return $filesystem->isFile(join_paths($appVendorPath, 'autoload.php')) &&
-        $filesystem->hash(join_paths($appVendorPath, 'autoload.php')) === $filesystem->hash(join_paths($workingPath, 'autoload.php'));
+    return $filesystem->isFile(Sidekick\join_paths($appVendorPath, 'autoload.php')) &&
+        $filesystem->hash(Sidekick\join_paths($appVendorPath, 'autoload.php')) === $filesystem->hash(Sidekick\join_paths($workingPath, 'autoload.php'));
 }
 
 /**
@@ -444,10 +383,39 @@ function laravel_vendor_exists(ApplicationContract $app, ?string $workingPath = 
  * @return int|bool
  *
  * @phpstan-return (TOperator is null ? int : bool)
+ *
+ * @codeCoverageIgnore
  */
 function laravel_version_compare(string $version, ?string $operator = null): int|bool
 {
     return Sidekick\laravel_version_compare($version, $operator);
+}
+
+/**
+ * Package version compare.
+ *
+ * @api
+ *
+ * @template TOperator of string|null
+ *
+ * @param  string  $package
+ * @param  string  $version
+ * @param  string|null  $operator
+ *
+ * @phpstan-param  TOperator  $operator
+ *
+ * @return int|bool
+ *
+ * @phpstan-return (TOperator is null ? int : bool)
+ *
+ * @throws \OutOfBoundsException
+ * @throws \RuntimeException
+ *
+ * @codeCoverageIgnore
+ */
+function package_version_compare(string $package, string $version, ?string $operator = null)
+{
+    return Sidekick\package_version_compare($package, $version, $operator);
 }
 
 /**
@@ -466,7 +434,10 @@ function laravel_version_compare(string $version, ?string $operator = null): int
  *
  * @phpstan-return (TOperator is null ? int : bool)
  *
+ * @throws \OutOfBoundsException
  * @throws \RuntimeException
+ *
+ * @codeCoverageIgnore
  */
 function phpunit_version_compare(string $version, ?string $operator = null): int|bool
 {
@@ -499,7 +470,7 @@ function php_binary(bool $escape = false): string
  */
 function join_paths(?string $basePath, string ...$paths): string
 {
-    return Sidekick\join_paths($basePath, ...$paths);
+    return Sidekick\Filesystem\join_paths($basePath, ...$paths);
 }
 
 /**

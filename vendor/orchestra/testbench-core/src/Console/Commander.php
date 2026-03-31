@@ -24,8 +24,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\SignalRegistry\SignalRegistry;
 use Throwable;
 
-use function Orchestra\Sidekick\is_symlink;
-use function Orchestra\Sidekick\join_paths;
+use function Orchestra\Sidekick\Filesystem\is_symlink;
+use function Orchestra\Sidekick\Filesystem\join_paths;
 use function Orchestra\Sidekick\transform_relative_path;
 
 /**
@@ -197,6 +197,8 @@ class Commander
     /**
      * Resolve the application's base path.
      *
+     * @api
+     *
      * @return string
      */
     protected function getApplicationBasePath()
@@ -260,7 +262,7 @@ class Commander
             (new Collection(Arr::wrap([SIGTERM, SIGINT, SIGHUP, SIGUSR1, SIGUSR2, SIGQUIT])))
                 ->each(
                     fn ($signal) => $this->signals->register($signal, function () use ($signal) {
-                        TerminatingConsole::handle();
+                        TerminatingConsole::handle($signal);
                         Workbench::flush();
 
                         $status = match ($signal) {

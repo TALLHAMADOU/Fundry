@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 use Orchestra\Canvas\Core\Presets\Preset;
 use Symfony\Component\Finder\Finder;
 
-use function Illuminate\Filesystem\join_paths;
+use function Orchestra\Sidekick\Filesystem\join_paths;
 
 trait UsesGeneratorOverrides
 {
@@ -67,7 +67,7 @@ trait UsesGeneratorOverrides
      *
      * @return array<int, string>
      */
-    protected function possibleModelsUsingCanvas(): array
+    protected function findAvailableModelsUsingCanvas(): array
     {
         $sourcePath = $this->generatorPreset()->sourcePath();
 
@@ -78,6 +78,18 @@ trait UsesGeneratorOverrides
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * Get a list of possible model names.
+     *
+     * @return array<int, string>
+     *
+     * @deprecated 10.1.0 Use `findAvailableModelsUsingCanvas()` instead.
+     */
+    protected function possibleModelsUsingCanvas(): array
+    {
+        return $this->findAvailableModelsUsingCanvas();
     }
 
     /**

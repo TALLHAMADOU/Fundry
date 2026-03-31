@@ -19,11 +19,9 @@ class ControllerMakeCommand extends \Illuminate\Routing\Console\ControllerMakeCo
 
     /**
      * Configures the current command.
-     *
-     * @return void
      */
     #[\Override]
-    protected function configure()
+    protected function configure(): void
     {
         parent::configure();
 
@@ -151,9 +149,9 @@ class ControllerMakeCommand extends \Illuminate\Routing\Console\ControllerMakeCo
      * @return array<int, string>
      */
     #[\Override]
-    protected function possibleModels()
+    protected function findAvailableModels()
     {
-        return $this->possibleModelsUsingCanvas();
+        return $this->findAvailableModelsUsingCanvas();
     }
 
     /**

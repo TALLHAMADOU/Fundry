@@ -11,6 +11,7 @@ use Illuminate\Console\Application;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Mail\Mailer;
+use Illuminate\Log\Context\Repository;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Stringable;
@@ -96,7 +97,6 @@ class Event
      * @param  \Illuminate\Console\Scheduling\EventMutex  $mutex
      * @param  string  $command
      * @param  \DateTimeZone|string|null  $timezone
-     * @return void
      */
     public function __construct(EventMutex $mutex, $command, $timezone = null)
     {
@@ -130,6 +130,8 @@ class Event
         if ($this->shouldSkipDueToOverlapping()) {
             return;
         }
+
+        $this->ensureMutexIsReleasedOnSignal();
 
         $exitCode = $this->start($container);
 
@@ -198,8 +200,10 @@ class Event
      */
     protected function execute($container)
     {
+        $context = json_encode($container[Repository::class]->dehydrate());
+
         return Process::fromShellCommandline(
-            $this->buildCommand(), base_path(), null, null, null
+            $this->buildCommand(), base_path(), ['__LARAVEL_CONTEXT' => $context], null, null
         )->run(
             laravel_cloud()
                 ? fn ($type, $line) => fwrite($type === 'out' ? STDOUT : STDERR, $line)
@@ -285,6 +289,16 @@ class Event
     public function runsInMaintenanceMode()
     {
         return $this->evenInMaintenanceMode;
+    }
+
+    /**
+     * Determine if the event runs when the scheduler is paused.
+     *
+     * @return bool
+     */
+    public function runsWhenPaused()
+    {
+        return $this->evenWhenPaused;
     }
 
     /**
@@ -381,13 +395,13 @@ class Event
     /**
      * E-mail the results of the scheduled operation.
      *
-     * @param  array|mixed  $addresses
+     * @param  mixed  $addresses
      * @param  bool  $onlyIfOutputExists
      * @return $this
      *
      * @throws \LogicException
      */
-    public function emailOutputTo($addresses, $onlyIfOutputExists = false)
+    public function emailOutputTo($addresses, $onlyIfOutputExists = true)
     {
         $this->ensureOutputIsBeingCaptured();
 
@@ -401,7 +415,7 @@ class Event
     /**
      * E-mail the results of the scheduled operation if it produces output.
      *
-     * @param  array|mixed  $addresses
+     * @param  mixed  $addresses
      * @return $this
      *
      * @throws \LogicException
@@ -414,7 +428,7 @@ class Event
     /**
      * E-mail the results of the scheduled operation if it fails.
      *
-     * @param  array|mixed  $addresses
+     * @param  mixed  $addresses
      * @return $this
      */
     public function emailOutputOnFailure($addresses)
@@ -448,7 +462,7 @@ class Event
      * @param  bool  $onlyIfOutputExists
      * @return void
      */
-    protected function emailOutput(Mailer $mailer, $addresses, $onlyIfOutputExists = false)
+    protected function emailOutput(Mailer $mailer, $addresses, $onlyIfOutputExists = true)
     {
         $text = is_file($this->output) ? file_get_contents($this->output) : '';
 
@@ -743,8 +757,8 @@ class Event
             $output = $this->output && is_file($this->output) ? file_get_contents($this->output) : '';
 
             return $onlyIfOutputExists && empty($output)
-                            ? null
-                            : $container->call($callback, ['output' => new Stringable($output)]);
+                ? null
+                : $container->call($callback, ['output' => new Stringable($output)]);
         };
     }
 
@@ -827,6 +841,30 @@ class Event
         $this->mutexNameResolver = is_string($mutexName) ? fn () => $mutexName : $mutexName;
 
         return $this;
+    }
+
+    /**
+     * Ensure the mutex is released if the process receives a termination signal.
+     *
+     * @return void
+     */
+    protected function ensureMutexIsReleasedOnSignal()
+    {
+        if (! $this->releaseOnTerminationSignals ||
+            $this->runInBackground ||
+            ! extension_loaded('pcntl')) {
+            return;
+        }
+
+        pcntl_async_signals(true);
+
+        foreach ([SIGTERM, SIGINT, SIGQUIT] as $signal) {
+            pcntl_signal($signal, function () {
+                $this->removeMutex();
+
+                exit(1);
+            });
+        }
     }
 
     /**

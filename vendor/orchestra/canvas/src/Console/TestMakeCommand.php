@@ -7,7 +7,7 @@ use Orchestra\Canvas\Core\Concerns\UsesGeneratorOverrides;
 use Orchestra\Canvas\GeneratorPreset;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-use function Orchestra\Sidekick\join_paths;
+use function Orchestra\Sidekick\Filesystem\join_paths;
 
 /**
  * @see https://github.com/laravel/framework/blob/11.x/src/Illuminate/Foundation/Console/TestMakeCommand.php
@@ -20,11 +20,9 @@ class TestMakeCommand extends \Illuminate\Foundation\Console\TestMakeCommand
 
     /**
      * Configures the current command.
-     *
-     * @return void
      */
     #[\Override]
-    protected function configure()
+    protected function configure(): void
     {
         parent::configure();
 

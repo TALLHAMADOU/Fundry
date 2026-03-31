@@ -9,7 +9,7 @@ use Orchestra\Canvas\Core\Concerns\UsesGeneratorOverrides;
 use Orchestra\Canvas\GeneratorPreset;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-use function Orchestra\Sidekick\join_paths;
+use function Orchestra\Sidekick\Filesystem\join_paths;
 
 #[AsCommand(name: 'make:view', description: 'Create a new view')]
 class ViewMakeCommand extends \Illuminate\Foundation\Console\ViewMakeCommand
@@ -22,11 +22,9 @@ class ViewMakeCommand extends \Illuminate\Foundation\Console\ViewMakeCommand
 
     /**
      * Configures the current command.
-     *
-     * @return void
      */
     #[\Override]
-    protected function configure()
+    protected function configure(): void
     {
         parent::configure();
 
@@ -53,6 +51,7 @@ class ViewMakeCommand extends \Illuminate\Foundation\Console\ViewMakeCommand
      * @param  string  $stub
      * @return string
      */
+    #[\Override]
     protected function resolveStubPath($stub)
     {
         $preset = $this->generatorPreset();

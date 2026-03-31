@@ -42,7 +42,10 @@ final class RemoteCommand
         Arr::add($env, 'TESTBENCH_PACKAGE_REMOTE', '(true)');
 
         if ($command instanceof Closure) {
-            $env['LARAVEL_INVOKABLE_CLOSURE'] = serialize(new SerializableClosure($command));
+            $env['LARAVEL_INVOKABLE_CLOSURE'] = transform(serialize(new SerializableClosure($command)), function ($invokableClosure) {
+                return base64_encode($invokableClosure);
+            });
+
             $env['APP_KEY'] = $env['APP_KEY'] ?? config('app.key') ?? false;
             $commands = ['invoke-serialized-closure'];
         } else {

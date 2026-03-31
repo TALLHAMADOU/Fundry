@@ -27,8 +27,7 @@ use Orchestra\Testbench\Features\TestingFeature;
 use Orchestra\Testbench\Foundation\PackageManifest;
 use PHPUnit\Framework\TestCase as PHPUnitTestCase;
 
-use function Orchestra\Sidekick\join_paths;
-use function Orchestra\Testbench\after_resolving;
+use function Orchestra\Sidekick\after_resolving;
 use function Orchestra\Testbench\default_skeleton_path;
 use function Orchestra\Testbench\refresh_router_lookups;
 
@@ -125,7 +124,7 @@ trait CreatesApplication
      * @api
      *
      * @param  \Illuminate\Foundation\Application  $app
-     * @return array<string, class-string>
+     * @return array<string, class-string|false>
      */
     protected function overrideApplicationAliases($app)
     {
@@ -147,9 +146,15 @@ trait CreatesApplication
         ))->merge($this->getPackageAliases($app));
 
         if (! empty($overrides = $this->overrideApplicationAliases($app))) {
-            $aliases->transform(static fn ($alias, $name) => $overrides[$name] ?? $alias);
+            /** @phpstan-ignore argument.type */
+            $aliases->transform(static function ($alias, $name) use ($overrides) {
+                return with($overrides[$name] ?? $alias, static function ($alias) {
+                    return $alias !== false ? $alias : null;
+                });
+            });
         }
 
+        /** @phpstan-ignore return.type */
         return $aliases->filter()->all();
     }
 
@@ -198,7 +203,7 @@ trait CreatesApplication
      * @api
      *
      * @param  \Illuminate\Foundation\Application  $app
-     * @return array<class-string, class-string>
+     * @return array<class-string, class-string|false>
      */
     protected function overrideApplicationProviders($app)
     {
@@ -220,9 +225,15 @@ trait CreatesApplication
         ))->merge($this->getPackageProviders($app));
 
         if (! empty($overrides = $this->overrideApplicationProviders($app))) {
-            $providers->transform(static fn ($provider) => $overrides[$provider] ?? $provider);
+            /** @phpstan-ignore argument.type */
+            $providers->transform(static function (string $provider) use ($overrides) {
+                return with($overrides[$provider] ?? $provider, static function ($provider) {
+                    return $provider !== false ? $provider : null;
+                });
+            });
         }
 
+        /** @phpstan-ignore return.type */
         return $providers->filter()->values()->all();
     }
 
@@ -249,40 +260,6 @@ trait CreatesApplication
     protected function getApplicationBasePath()
     {
         return static::applicationBasePath();
-    }
-
-    /**
-     * Resolve the application's base path (deprecated).
-     *
-     * @api
-     *
-     * @return string|null
-     *
-     * @deprecated 6.22.0 Use `applicationBasePath()` static method instead.
-     */
-    protected function getBasePath()
-    {
-        trigger_deprecation('orchestra/testbench-core', '6.22.0', 'Use `%s` static method instead.', 'applicationBasePath()');
-
-        return static::applicationBasePath();
-    }
-
-    /**
-     * Get the default application bootstrap file path (if exists).
-     *
-     * @internal
-     *
-     * @param  string  $filename
-     * @return string|false
-     *
-     * @deprecated
-     *
-     * @codeCoverageIgnore
-     */
-    #[\Deprecated('Removed unreliable method to determine default skeleton', since: '9.7.0')]
-    protected function getDefaultApplicationBootstrapFile(string $filename): string|false
-    {
-        return default_skeleton_path(join_paths('bootstrap', $filename));
     }
 
     /**
@@ -567,10 +544,6 @@ trait CreatesApplication
                 $this->defineEnvironment($app);
                 $this->getEnvironmentSetUp($app);
             },
-            annotation: function () use ($app) {
-                $this->parseTestMethodAnnotations($app, 'environment-setup'); /** @phpstan-ignore method.notFound */
-                $this->parseTestMethodAnnotations($app, 'define-env'); /** @phpstan-ignore method.notFound */
-            },
             attribute: function () use ($app) {
                 $this->parseTestMethodAttributes($app, WithImmutableDates::class); /** @phpstan-ignore method.notFound */
                 $this->parseTestMethodAttributes($app, DefineEnvironment::class); /** @phpstan-ignore method.notFound */
@@ -669,6 +642,8 @@ trait CreatesApplication
      *
      * @param  \Illuminate\Foundation\Application  $app
      * @return void
+     *
+     * @deprecated 10.0 Use "defineEnvironment()" instead.
      */
     protected function getEnvironmentSetUp($app)
     {

@@ -2,20 +2,19 @@
 
 namespace {{ factoryNamespace }};
 
+use {{ namespacedModel }};
 use Illuminate\Database\Eloquent\Factories\Factory;
 use {{ namespacedModel }};
 
 /**
- * @template TModel of \{{ namespacedModel }}
- *
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<TModel>
+ * @extends Factory<{{ model }}>
  */
 class {{ factory }}Factory extends Factory
 {
     /**
      * The name of the factory's corresponding model.
      *
-     * @var class-string<TModel>
+     * @var class-string<{{ model }}>
      */
     protected $model = {{ model }}::class;
 

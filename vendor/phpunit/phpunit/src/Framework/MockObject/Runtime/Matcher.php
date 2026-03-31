@@ -29,6 +29,10 @@ use PHPUnit\Util\ThrowableToStringMapper;
 final class Matcher
 {
     private readonly InvocationOrder $invocationRule;
+
+    /**
+     * @var ?non-empty-string
+     */
     private ?string $afterMatchBuilderId    = null;
     private ?MethodName $methodNameRule     = null;
     private ?ParametersRule $parametersRule = null;
@@ -39,18 +43,28 @@ final class Matcher
         $this->invocationRule = $rule;
     }
 
-    public function hasMatchers(): bool
+    public function hasInvocationCountRule(): bool
     {
         return !$this->invocationRule instanceof AnyInvokedCount;
     }
 
+    /**
+     * @phpstan-assert-if-true !null $this->methodNameRule
+     */
     public function hasMethodNameRule(): bool
     {
         return $this->methodNameRule !== null;
     }
 
+    /**
+     * @throws MethodNameNotConfiguredException
+     */
     public function methodNameRule(): MethodName
     {
+        if (!$this->hasMethodNameRule()) {
+            throw new MethodNameNotConfiguredException;
+        }
+
         return $this->methodNameRule;
     }
 
@@ -59,6 +73,9 @@ final class Matcher
         $this->methodNameRule = $rule;
     }
 
+    /**
+     * @phpstan-assert-if-true !null $this->parametersRule
+     */
     public function hasParametersRule(): bool
     {
         return $this->parametersRule !== null;
@@ -74,6 +91,9 @@ final class Matcher
         $this->stub = $stub;
     }
 
+    /**
+     * @param non-empty-string $id
+     */
     public function setAfterMatchBuilderId(string $id): void
     {
         $this->afterMatchBuilderId = $id;
@@ -97,7 +117,7 @@ final class Matcher
                 ->__phpunit_getInvocationHandler()
                 ->lookupMatcher($this->afterMatchBuilderId);
 
-            if (!$matcher) {
+            if ($matcher === null) {
                 throw new MatchBuilderNotFoundException($this->afterMatchBuilderId);
             }
         }
@@ -118,7 +138,7 @@ final class Matcher
             );
         }
 
-        if ($this->stub) {
+        if ($this->stub !== null) {
             return $this->stub->invoke($invocation);
         }
 
@@ -138,7 +158,7 @@ final class Matcher
                 ->__phpunit_getInvocationHandler()
                 ->lookupMatcher($this->afterMatchBuilderId);
 
-            if (!$matcher) {
+            if ($matcher === null) {
                 throw new MatchBuilderNotFoundException($this->afterMatchBuilderId);
             }
 

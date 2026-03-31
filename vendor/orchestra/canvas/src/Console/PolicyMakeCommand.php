@@ -17,11 +17,9 @@ class PolicyMakeCommand extends \Illuminate\Foundation\Console\PolicyMakeCommand
 
     /**
      * Configures the current command.
-     *
-     * @return void
      */
     #[\Override]
-    protected function configure()
+    protected function configure(): void
     {
         parent::configure();
 
@@ -96,8 +94,8 @@ class PolicyMakeCommand extends \Illuminate\Foundation\Console\PolicyMakeCommand
      * @return array<int, string>
      */
     #[\Override]
-    protected function possibleModels()
+    protected function findAvailableModels()
     {
-        return $this->possibleModelsUsingCanvas();
+        return $this->findAvailableModelsUsingCanvas();
     }
 }

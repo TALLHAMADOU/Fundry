@@ -9,29 +9,10 @@ use Hamadou\Fundry\Models\Country;
 use Hamadou\Fundry\Enums\WalletType;
 use Hamadou\Fundry\Enums\CurrencyType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
 
 class WalletTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        
-        // Créer la table users si elle n'existe pas
-        if (!Schema::hasTable('users')) {
-            Schema::create('users', function ($table) {
-                $table->id();
-                $table->string('name');
-                $table->string('email')->unique();
-                $table->string('password');
-                $table->timestamps();
-            });
-        }
-        
-        $this->app['config']->set('auth.providers.users.model', \Illuminate\Foundation\Auth\User::class);
-    }
 
     public function test_can_create_wallet()
     {
@@ -112,7 +93,7 @@ class WalletTest extends TestCase
     {
         return \Hamadou\Fundry\Tests\Helpers\TestUser::create([
             'name' => 'Test User',
-            'email' => 'test@example.com',
+            'email' => 'test_' . uniqid('', true) . '@example.com',
             'password' => bcrypt('password'),
         ]);
     }

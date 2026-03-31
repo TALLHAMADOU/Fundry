@@ -9,6 +9,8 @@ class TestUser extends Authenticatable
 {
     use HasWallets;
 
+    protected $table = 'users';
+
     protected $fillable = [
         'name',
         'email',

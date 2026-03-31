@@ -7,7 +7,7 @@ use Orchestra\Canvas\Core\Concerns\ResolvesPresetStubs;
 use Orchestra\Canvas\Core\Concerns\UsesGeneratorOverrides;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-use function Orchestra\Sidekick\join_paths;
+use function Orchestra\Sidekick\Filesystem\join_paths;
 
 /**
  * @see https://github.com/laravel/framework/blob/11.x/src/Illuminate/Database/Console/Factories/FactoryMakeCommand.php
@@ -21,11 +21,9 @@ class FactoryMakeCommand extends \Illuminate\Database\Console\Factories\FactoryM
 
     /**
      * Configures the current command.
-     *
-     * @return void
      */
     #[\Override]
-    protected function configure()
+    protected function configure(): void
     {
         parent::configure();
 

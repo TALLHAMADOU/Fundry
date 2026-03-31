@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use NunoMaduro\Collision\Adapters\Laravel\Exceptions\RequirementsException;
 use NunoMaduro\Collision\Coverage;
 use ParaTest\Options;
+use ParaTest\ParaTestCommand;
 use RuntimeException;
 use SebastianBergmann\Environment\Console;
 use Symfony\Component\Console\Input\ArgvInput;
@@ -130,7 +131,8 @@ class TestCommand extends Command
                 $this->newLine();
             }
 
-            $coverage = Coverage::report($this->output);
+            $hideFullCoverage = (bool) $this->option('compact');
+            $coverage = Coverage::report($this->output, $hideFullCoverage);
 
             $exitCode = (int) ($coverage < $this->option('min'));
 
@@ -257,6 +259,7 @@ class TestCommand extends Command
                 && $option != '--no-ansi'
                 && ! Str::startsWith($option, '--min')
                 && ! Str::startsWith($option, '-p')
+                && ! Str::startsWith($option, '--compact')
                 && ! Str::startsWith($option, '--parallel')
                 && ! Str::startsWith($option, '--recreate-databases')
                 && ! Str::startsWith($option, '--drop-databases')
@@ -380,6 +383,6 @@ class TestCommand extends Command
      */
     protected function isParallelDependenciesInstalled()
     {
-        return class_exists(\ParaTest\ParaTestCommand::class);
+        return class_exists(ParaTestCommand::class);
     }
 }

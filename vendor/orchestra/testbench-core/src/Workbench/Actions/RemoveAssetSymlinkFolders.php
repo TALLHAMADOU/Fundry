@@ -6,7 +6,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Orchestra\Testbench\Contracts\Config as ConfigContract;
 
-use function Orchestra\Sidekick\is_symlink;
+use function Orchestra\Sidekick\Filesystem\is_symlink;
 use function Orchestra\Testbench\package_path;
 
 /**
@@ -50,7 +50,7 @@ final class RemoveAssetSymlinkFolders
 
                 if (is_symlink($to)) {
                     return [$to, function ($to) {
-                        windows_os() ? $this->files->deleteDirectory($to) : $this->files->delete($to);
+                        windows_os() ? @rmdir($to) : $this->files->delete($to);
                     }];
                 }
 

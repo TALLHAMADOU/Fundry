@@ -4,7 +4,12 @@ namespace Orchestra\Sidekick;
 
 use BackedEnum;
 use Closure;
+use Composer\InstalledVersions;
+use Composer\Semver\VersionParser;
+use Illuminate\Contracts\Foundation\Application as ApplicationContract;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Arr;
+use OutOfBoundsException;
 use PHPUnit\Runner\Version;
 use RuntimeException;
 use UnitEnum;
@@ -49,23 +54,40 @@ if (! \function_exists('Orchestra\Sidekick\enum_value')) {
     }
 }
 
+if (! \function_exists('Orchestra\Sidekick\after_resolving')) {
+    /**
+     * Register after resolving callback.
+     *
+     * @api
+     *
+     * @template TLaravel of \Illuminate\Contracts\Foundation\Application
+     *
+     * @param  TLaravel  $app
+     * @param  class-string|string  $name
+     * @param  (\Closure(object, TLaravel):(mixed))|null  $callback
+     */
+    function after_resolving(ApplicationContract $app, string $name, ?Closure $callback = null): void
+    {
+        $app->afterResolving($name, $callback);
+
+        if ($app->resolved($name)) {
+            value($callback, $app->make($name), $app);
+        }
+    }
+}
+
 if (! \function_exists('Orchestra\Sidekick\join_paths')) {
+
     /**
      * Join the given paths together.
      *
      * @api
+     *
+     * @deprecated
      */
     function join_paths(?string $basePath, string ...$paths): string
     {
-        foreach ($paths as $index => $path) {
-            if (empty($path) && $path !== '0') {
-                unset($paths[$index]);
-            } else {
-                $paths[$index] = DIRECTORY_SEPARATOR.ltrim($path, DIRECTORY_SEPARATOR);
-            }
-        }
-
-        return $basePath.implode('', $paths);
+        return Filesystem\join_paths($basePath, ...$paths);
     }
 }
 
@@ -121,16 +143,31 @@ if (! \function_exists('Orchestra\Sidekick\is_symlink')) {
      * Determine if the path is a symlink for both Unix and Windows environments.
      *
      * @api
+     *
+     * @deprecated
      */
     function is_symlink(string $path): bool
     {
-        if (windows_os() && is_dir($path) && readlink($path) !== $path) {
-            return true;
-        } elseif (is_link($path)) {
-            return true;
-        }
+        return Filesystem\is_symlink($path);
+    }
+}
 
-        return false;
+if (! \function_exists('Orchestra\Sidekick\is_testbench_cli')) {
+    /**
+     * Determine if command executed via Testbench CLI.
+     *
+     * @api
+     */
+    function is_testbench_cli(?bool $dusk = null): bool
+    {
+        $usingTestbench = \defined('TESTBENCH_CORE');
+        $usingTestbenchDusk = \defined('TESTBENCH_DUSK');
+
+        return match ($dusk) {
+            false => $usingTestbench === true && $usingTestbenchDusk === false,
+            true => $usingTestbench === true && $usingTestbenchDusk === true,
+            default => $usingTestbench === true,
+        };
     }
 }
 
@@ -148,9 +185,139 @@ if (! \function_exists('Orchestra\Sidekick\transform_relative_path')) {
     }
 }
 
+if (! \function_exists('Orchestra\Sidekick\package_path')) {
+    /**
+     * Get the package path.
+     *
+     * @api
+     *
+     * @no-named-arguments
+     *
+     * @param  array<int, string|null>|string  ...$path
+     */
+    function package_path(array|string $path = ''): string
+    {
+        $packagePath = once(function () {
+            $workingPath = realpath(match (true) {
+                \defined('TESTBENCH_WORKING_PATH') => TESTBENCH_WORKING_PATH,
+                Env::has('TESTBENCH_WORKING_PATH') => Env::get('TESTBENCH_WORKING_PATH'),
+                default => InstalledVersions::getRootPackage()['install_path'],
+            });
+
+            return $workingPath !== false ? $workingPath : getcwd();
+        });
+
+        return join_paths($packagePath(), ...Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path));
+    }
+}
+
+if (! \function_exists('Orchestra\Sidekick\working_path')) {
+    /**
+     * Get the working path.
+     *
+     * @api
+     *
+     * @no-named-arguments
+     *
+     * @param  array<int, string|null>|string  ...$path
+     */
+    function working_path(array|string $path = ''): string
+    {
+        return is_testbench_cli()
+            ? package_path($path)
+            : base_path(join_paths(...Arr::wrap(\func_num_args() > 1 ? \func_get_args() : $path)));
+    }
+}
+
+if (! \function_exists('Orchestra\Sidekick\laravel_normalize_version')) {
+    /**
+     * Laravel normalize version.
+     *
+     * @api
+     *
+     * @throws \OutOfBoundsException
+     */
+    function laravel_normalize_version(): string
+    {
+        if (! class_exists(Application::class)) {
+            throw new OutOfBoundsException('Unable to verify "laravel/framework" version');
+        }
+
+        /** @var string $version */
+        $version = transform(
+            Application::VERSION,
+            fn (string $version) => match ($version) {
+                '13.x-dev' => '13.0.0',
+                default => $version,
+            }
+        );
+
+        return (new VersionParser)->normalize($version);
+    }
+}
+
+if (! \function_exists('Orchestra\Sidekick\phpunit_normalize_version')) {
+    /**
+     * PHPUnit normalize version.
+     *
+     * @api
+     *
+     * @throws \OutOfBoundsException
+     */
+    function phpunit_normalize_version(): string
+    {
+        if (! class_exists(Version::class)) {
+            throw new OutOfBoundsException('Unable to verify "phpunit/phpunit" version');
+        }
+
+        /** @var string $version */
+        $version = transform(
+            Version::id(),
+            fn (string $version) => match (true) {
+                str_starts_with($version, '13.0-') => '13.0.0',
+                default => $version,
+            }
+        );
+
+        return (new VersionParser)->normalize($version);
+    }
+}
+
 if (! \function_exists('Orchestra\Sidekick\laravel_version_compare')) {
     /**
      * Laravel version compare.
+     *
+     * @api
+     *
+     * @template TOperator of string|null
+     *
+     * @param  TOperator  $operator
+     * @return (TOperator is null ? int : bool)
+     *
+     * @throws \RuntimeException
+     *
+     * @codeCoverageIgnore
+     */
+    function laravel_version_compare(string $version, ?string $operator = null): int|bool
+    {
+        if (! class_exists(Application::class)) {
+            return package_version_compare('laravel/framework', $version, $operator);
+        }
+
+        $laravel = laravel_normalize_version();
+        $version = (new VersionParser)->normalize($version);
+
+        if (\is_null($operator)) {
+            return version_compare($laravel, $version);
+        }
+
+        return version_compare($laravel, $version, $operator);
+    }
+}
+
+if (! \function_exists('Orchestra\Sidekick\package_version_compare')) {
+    /**
+     * Package version compare.
      *
      * @api
      *
@@ -160,28 +327,29 @@ if (! \function_exists('Orchestra\Sidekick\laravel_version_compare')) {
      *
      * @phpstan-return (TOperator is null ? int : bool)
      *
+     * @throws \OutOfBoundsException
+     * @throws \RuntimeException
+     *
      * @codeCoverageIgnore
      */
-    function laravel_version_compare(string $version, ?string $operator = null): int|bool
+    function package_version_compare(string $package, string $version, ?string $operator = null): int|bool
     {
-        if (! class_exists(Application::class)) {
-            throw new RuntimeException('Unable to verify Laravel Framework version');
+        $prettyVersion = InstalledVersions::getPrettyVersion($package);
+
+        if (\is_null($prettyVersion)) {
+            throw new RuntimeException(\sprintf('Unable to compare "%s" version', $package));
         }
 
-        /** @var string $laravel */
-        $laravel = transform(
-            Application::VERSION,
-            fn (string $version) => match ($version) {
-                '13.x-dev' => '13.0.0',
-                default => $version,
-            }
-        );
+        $versionParser = new VersionParser;
+
+        $package = $versionParser->normalize($prettyVersion);
+        $version = $versionParser->normalize($version);
 
         if (\is_null($operator)) {
-            return version_compare($laravel, $version);
+            return version_compare($package, $version);
         }
 
-        return version_compare($laravel, $version, $operator);
+        return version_compare($package, $version, $operator);
     }
 }
 
@@ -193,10 +361,10 @@ if (! \function_exists('Orchestra\Sidekick\phpunit_version_compare')) {
      *
      * @template TOperator of string|null
      *
-     * @phpstan-param  TOperator  $operator
+     * @param  TOperator  $operator
+     * @return (TOperator is null ? int : bool)
      *
-     * @phpstan-return (TOperator is null ? int : bool)
-     *
+     * @throws \OutOfBoundsException
      * @throws \RuntimeException
      *
      * @codeCoverageIgnore
@@ -204,17 +372,11 @@ if (! \function_exists('Orchestra\Sidekick\phpunit_version_compare')) {
     function phpunit_version_compare(string $version, ?string $operator = null): int|bool
     {
         if (! class_exists(Version::class)) {
-            throw new RuntimeException('Unable to verify PHPUnit version');
+            return package_version_compare('phpunit/phpunit', $version, $operator);
         }
 
-        /** @var string $phpunit */
-        $phpunit = transform(
-            Version::id(),
-            fn (string $version) => match (true) {
-                str_starts_with($version, '12.4-') => '12.4.0',
-                default => $version,
-            }
-        );
+        $phpunit = phpunit_normalize_version();
+        $version = (new VersionParser)->normalize($version);
 
         if (\is_null($operator)) {
             return version_compare($phpunit, $version);

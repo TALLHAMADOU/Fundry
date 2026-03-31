@@ -17,11 +17,9 @@ class ObserverMakeCommand extends \Illuminate\Foundation\Console\ObserverMakeCom
 
     /**
      * Configures the current command.
-     *
-     * @return void
      */
     #[\Override]
-    protected function configure()
+    protected function configure(): void
     {
         parent::configure();
 
@@ -82,8 +80,8 @@ class ObserverMakeCommand extends \Illuminate\Foundation\Console\ObserverMakeCom
      * @return array<int, string>
      */
     #[\Override]
-    protected function possibleModels()
+    protected function findAvailableModels()
     {
-        return $this->possibleModelsUsingCanvas();
+        return $this->findAvailableModelsUsingCanvas();
     }
 }

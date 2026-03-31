@@ -19,7 +19,7 @@ use ReflectionClass;
 use Symfony\Component\Finder\Finder;
 use Throwable;
 
-use function Orchestra\Sidekick\join_paths;
+use function Orchestra\Sidekick\Filesystem\join_paths;
 use function Orchestra\Testbench\after_resolving;
 use function Orchestra\Testbench\package_path;
 use function Orchestra\Testbench\workbench_path;
@@ -101,7 +101,7 @@ class Workbench
         $hasAuthentication = $config->getWorkbenchAttributes()['auth'] ?? false;
 
         static::start($app, $config, array_filter([
-            $hasAuthentication === true && class_exists('Orchestra\Workbench\AuthServiceProvider') ? 'Orchestra\Workbench\AuthServiceProvider' : null,
+            $hasAuthentication === true ? 'Orchestra\Workbench\AuthServiceProvider' : null,
             'Orchestra\Workbench\WorkbenchServiceProvider',
         ]));
     }

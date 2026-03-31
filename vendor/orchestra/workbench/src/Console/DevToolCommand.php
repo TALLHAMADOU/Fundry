@@ -22,7 +22,8 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 use function Laravel\Prompts\confirm;
-use function Orchestra\Sidekick\join_paths;
+use function Orchestra\Sidekick\Filesystem\join_paths;
+use function Orchestra\Sidekick\is_testbench_cli;
 use function Orchestra\Testbench\package_path;
 
 #[AsCommand(name: 'workbench:devtool', description: 'Configure Workbench for package development')]
@@ -73,13 +74,13 @@ class DevToolCommand extends Command implements PromptsForMissingInput
             filesystem: $filesystem,
             components: $this->components,
         ))->handle(
-            Collection::make([
+            (new Collection([
                 join_paths('app', 'Models'),
 
                 join_paths('database', 'factories'),
                 join_paths('database', 'migrations'),
                 join_paths('database', 'seeders'),
-            ])->when(
+            ]))->when(
                 $this->option('basic') === false,
                 fn ($directories) => $directories->push(...['bootstrap', 'routes', join_paths('resources', 'views')])
             )->map(static fn ($directory) => join_paths($workbenchWorkingPath, $directory))
@@ -191,7 +192,7 @@ class DevToolCommand extends Command implements PromptsForMissingInput
         $content['scripts']['serve'] = [
             'Composer\\Config::disableProcessTimeout',
             '@build',
-            $hasTestbenchDusk && \defined('TESTBENCH_DUSK')
+            $hasTestbenchDusk && is_testbench_cli(dusk: true)
                 ? '@php vendor/bin/testbench-dusk serve --ansi'
                 : '@php vendor/bin/testbench serve --ansi',
         ];
@@ -285,9 +286,7 @@ class DevToolCommand extends Command implements PromptsForMissingInput
     {
         $install = null;
 
-        if ($input->getOption('skip-install') === true) {
-            $install = false;
-        } elseif (\is_null($input->getOption('install'))) {
+        if (\is_null($input->getOption('install'))) {
             $install = confirm('Run Workbench installation?', true);
         }
 
@@ -307,9 +306,6 @@ class DevToolCommand extends Command implements PromptsForMissingInput
             ['force', 'f', InputOption::VALUE_NONE, 'Overwrite any existing files'],
             ['install', null, InputOption::VALUE_NEGATABLE, 'Run Workbench installation'],
             ['basic', null, InputOption::VALUE_NONE, 'Workbench installation without discovers and routes'],
-
-            /** @deprecated */
-            ['skip-install', null, InputOption::VALUE_NONE, 'Skipped Workbench installation (deprecated)'],
         ];
     }
 }

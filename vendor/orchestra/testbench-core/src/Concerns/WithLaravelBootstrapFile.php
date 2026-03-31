@@ -4,7 +4,7 @@ namespace Orchestra\Testbench\Concerns;
 
 use Orchestra\Testbench\Foundation\Application as Testbench;
 
-use function Orchestra\Sidekick\join_paths;
+use function Orchestra\Sidekick\Filesystem\join_paths;
 use function Orchestra\Testbench\uses_default_skeleton;
 use function Orchestra\Testbench\workbench_path;
 
@@ -66,14 +66,4 @@ trait WithLaravelBootstrapFile
      * @return string
      */
     abstract protected function getApplicationBasePath();
-
-    /**
-     * Get the default application bootstrap file path (if exists).
-     *
-     * @internal
-     *
-     * @param  string  $filename
-     * @return string|false
-     */
-    abstract protected function getDefaultApplicationBootstrapFile(string $filename): string|false;
 }

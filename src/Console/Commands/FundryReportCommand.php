@@ -131,7 +131,7 @@ class FundryReportCommand extends Command
     private function generatePdf($type, $data, $filePath)
     {
         if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
-            throw new \RuntimeException('PDF generation requires barryvdh/laravel-dompdf. Install it with: composer require barryvdh/laravel-dompdf (Laravel 10-11 only, Laravel 12 not yet supported)');
+            throw new \RuntimeException('PDF generation requires barryvdh/laravel-dompdf. Install with: composer require barryvdh/laravel-dompdf:^3.0 (Laravel 9–13), or ^2.0 on legacy apps.');
         }
         
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView("fundry::reports.{$type}", [

@@ -49,11 +49,25 @@ trait ManagesAttributes
     public $evenInMaintenanceMode = false;
 
     /**
+     * Indicates if the command should run even when the scheduler is paused.
+     *
+     * @var bool
+     */
+    public $evenWhenPaused = false;
+
+    /**
      * Indicates if the command should not overlap itself.
      *
      * @var bool
      */
     public $withoutOverlapping = false;
+
+    /**
+     * Indicates if the mutex should be released when the process receives a termination signal.
+     *
+     * @var bool
+     */
+    public $releaseOnTerminationSignals = true;
 
     /**
      * Indicates if the command should only be allowed to run on one server for each cron expression.
@@ -91,7 +105,7 @@ trait ManagesAttributes
     protected $rejects = [];
 
     /**
-     * The human readable description of the event.
+     * The human-readable description of the event.
      *
      * @var string|null
      */
@@ -113,7 +127,7 @@ trait ManagesAttributes
     /**
      * Limit the environments the command should run in.
      *
-     * @param  array|mixed  $environments
+     * @param  mixed  $environments
      * @return $this
      */
     public function environments($environments)
@@ -136,17 +150,33 @@ trait ManagesAttributes
     }
 
     /**
+     * State that the command should run even when the scheduler is paused.
+     *
+     * @return $this
+     */
+    public function evenWhenPaused()
+    {
+        $this->evenWhenPaused = true;
+
+        return $this;
+    }
+
+    /**
      * Do not allow the event to overlap each other.
+     *
      * The expiration time of the underlying cache lock may be specified in minutes.
      *
      * @param  int  $expiresAt
+     * @param  bool  $releaseOnTerminationSignals
      * @return $this
      */
-    public function withoutOverlapping($expiresAt = 1440)
+    public function withoutOverlapping($expiresAt = 1440, $releaseOnTerminationSignals = true)
     {
         $this->withoutOverlapping = true;
 
         $this->expiresAt = $expiresAt;
+
+        $this->releaseOnTerminationSignals = $releaseOnTerminationSignals;
 
         return $this->skip(function () {
             return $this->mutex->exists($this);

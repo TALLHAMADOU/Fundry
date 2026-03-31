@@ -8,6 +8,7 @@ use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 use function Laravel\Prompts\confirm;
+use function Orchestra\Sidekick\is_testbench_cli;
 use function Orchestra\Testbench\package_path;
 use function Orchestra\Testbench\php_binary;
 
@@ -44,11 +45,11 @@ class TestFallbackCommand extends Command
 
     /** {@inheritDoc} */
     #[\Override]
-    public function configure()
+    public function configure(): void
     {
         parent::configure();
 
-        if (! \defined('TESTBENCH_CORE')) {
+        if (! is_testbench_cli()) {
             $this->setHidden(true);
         }
     }
@@ -76,7 +77,7 @@ class TestFallbackCommand extends Command
      */
     protected function installCollisionDependencies(): void
     {
-        $version = '8.0';
+        $version = '8.9';
 
         $command = \sprintf('%s require "nunomaduro/collision:^%s" --dev', $this->findComposer(), $version);
 

@@ -1,4 +1,5 @@
 {
+    "$schema": "https://getcomposer.org/schema.json",
     "name": "orchestra/canvas-core",
     "description": "Code Generators Builder for Laravel Applications and Packages",
     "type": "library",
@@ -25,24 +26,28 @@
         }
     },
     "require": {
-        "php": "^8.2",
+        "php": "^8.3",
         "composer-runtime-api": "^2.2",
         "composer/semver": "^3.0",
-        "illuminate/console": "^11.43.0",
-        "illuminate/support": "^11.43.0",
-        "orchestra/sidekick": "^1.0.2",
-        "symfony/polyfill-php83": "^1.31"
+        "illuminate/console": "^13.0",
+        "illuminate/support": "^13.0",
+        "orchestra/sidekick": "~1.1.23|~1.2.20"
     },
     "require-dev": {
-        "laravel/framework": "^11.43.0",
-        "laravel/pint": "^1.20",
+        "laravel/framework": "^13.0",
+        "laravel/pint": "^1.24",
         "mockery/mockery": "^1.6.10",
-        "orchestra/testbench-core": "^9.11.0",
-        "phpstan/phpstan": "^2.1",
-        "phpunit/phpunit": "^11.5.7",
-        "symfony/yaml": "^7.0.3"
+        "orchestra/testbench-core": "^11.0",
+        "phpstan/phpstan": "^2.1.17",
+        "phpunit/phpunit": "^11.5.50|^12.5.8|^13.0.0",
+        "symfony/yaml": "^7.4|^8.0"
     },
     "config": {
+        "audit": {
+            "ignore": {
+                "GHSA-78fx-h6xr-vch4": "Affected component is not in use"
+            }
+        },
         "sort-packages": true
     },
     "support": {
@@ -63,7 +68,7 @@
         "clear": "@php vendor/bin/testbench package:purge-skeleton --ansi",
         "prepare": "@php vendor/bin/testbench package:discover --ansi",
         "lint": [
-            "@php vendor/bin/pint --ansi",
+            "@php vendor/bin/pint --ansi --parallel",
             "@php vendor/bin/phpstan analyse --verbose --ansi"
         ],
         "test": "@php vendor/bin/phpunit -c ./ --color",
