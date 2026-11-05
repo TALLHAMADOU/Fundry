@@ -25,7 +25,7 @@ interface TransactionServiceInterface
      * @param string|null $description
      * @return Transaction
      */
-    public function processDeposit(Wallet $wallet, float $amount, string $description = null): Transaction;
+    public function processDeposit(Wallet $wallet, float $amount, ?string $description = null): Transaction;
 
     /**
      * Traite un retrait depuis un portefeuille.
@@ -35,7 +35,7 @@ interface TransactionServiceInterface
      * @param string|null $description
      * @return Transaction
      */
-    public function processWithdrawal(Wallet $wallet, float $amount, string $description = null): Transaction;
+    public function processWithdrawal(Wallet $wallet, float $amount, ?string $description = null): Transaction;
 
     /**
      * Traite un dépôt avec un DTO.

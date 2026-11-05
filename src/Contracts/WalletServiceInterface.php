@@ -18,6 +18,21 @@ interface WalletServiceInterface
     public function createWalletForUser($user, array $data): Wallet;
 
     /**
+     * Crédite directement un portefeuille.
+     */
+    public function deposit(Wallet $wallet, float $amount): void;
+
+    /**
+     * Débite directement un portefeuille.
+     */
+    public function withdraw(Wallet $wallet, float $amount): void;
+
+    /**
+     * Vérifie si un portefeuille peut effectuer un retrait.
+     */
+    public function canWithdraw(Wallet $wallet, float $amount): bool;
+
+    /**
      * Effectue un transfert entre deux portefeuilles.
      *
      * @param Wallet $fromWallet
@@ -26,7 +41,7 @@ interface WalletServiceInterface
      * @param string|null $description
      * @return Transaction
      */
-    public function transfer(Wallet $fromWallet, Wallet $toWallet, float $amount, string $description = null): Transaction;
+    public function transfer(Wallet $fromWallet, Wallet $toWallet, float $amount, ?string $description = null): Transaction;
 
     /**
      * Effectue un transfert avec un DTO.

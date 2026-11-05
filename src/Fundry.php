@@ -7,11 +7,10 @@ use Hamadou\Fundry\Contracts\TransactionServiceInterface;
 use Hamadou\Fundry\Contracts\CurrencyServiceInterface;
 use Hamadou\Fundry\Models\Wallet;
 use Hamadou\Fundry\Models\Transaction;
+use Hamadou\Fundry\Models\Currency;
 use Hamadou\Fundry\DTOs\DepositDTO;
 use Hamadou\Fundry\DTOs\WithdrawalDTO;
 use Hamadou\Fundry\DTOs\TransferDTO;
-use Hamadou\Fundry\Exceptions\InsufficientFundsException;
-use Hamadou\Fundry\Exceptions\ConcurrencyException;
 
 class Fundry
 {
@@ -32,7 +31,7 @@ class Fundry
     // =====================
     // Wallet operations
     // =====================
-    
+
     public function createWallet($user, array $data): Wallet
     {
         return $this->walletService->createWalletForUser($user, $data);
@@ -48,6 +47,11 @@ class Fundry
         return $this->walletService->getWalletHistory($wallet, $limit);
     }
 
+    public function calculateTotalBalance($user, string $currencyCode = 'USD'): float
+    {
+        return $this->walletService->calculateTotalBalance($user, $currencyCode);
+    }
+
     public function transfer(Wallet $fromWallet, Wallet $toWallet, float $amount, ?string $description = null): Transaction
     {
         return $this->walletService->transfer($fromWallet, $toWallet, $amount, $description);
@@ -61,7 +65,7 @@ class Fundry
     // =====================
     // Transactions
     // =====================
-    
+
     public function deposit(Wallet $wallet, float $amount, ?string $description = null): Transaction
     {
         return $this->transactionService->processDeposit($wallet, $amount, $description);
@@ -100,8 +104,8 @@ class Fundry
     // =====================
     // Currency operations
     // =====================
-    
-    public function createCurrency(array $data)
+
+    public function createCurrency(array $data): Currency
     {
         return $this->currencyService->createCurrency($data);
     }
@@ -116,8 +120,18 @@ class Fundry
         return $this->currencyService->convertAmount($amount, $fromCurrency, $toCurrency);
     }
 
+    public function convertCurrency(float $amount, string $fromCurrency, string $toCurrency): ?float
+    {
+        return $this->convertAmount($amount, $fromCurrency, $toCurrency);
+    }
+
     public function getSupportedCurrencies(): array
     {
         return $this->currencyService->getSupportedCurrencies();
+    }
+
+    public function clearCurrencyCache(): void
+    {
+        $this->currencyService->clearCache();
     }
 }

@@ -56,4 +56,9 @@ interface CurrencyServiceInterface
      * @return int Nombre de devises mises à jour
      */
     public function syncExchangeRates(array $rates): int;
+
+    /**
+     * Nettoie le cache des devises.
+     */
+    public function clearCache(): void;
 }
