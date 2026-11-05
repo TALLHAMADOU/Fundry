@@ -43,6 +43,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cross-Currency Transfers
+    |--------------------------------------------------------------------------
+    |
+    | Controls how transfers between wallets with different currencies behave:
+    | - true  (Option A): Automatically convert the transferred amount to the
+    |                     destination wallet's currency using live exchange rates.
+    | - false (Option B): Reject cross-currency transfers with InvalidCurrencyException.
+    |
+    */
+    'allow_cross_currency_transfers' => env('FUNDRY_ALLOW_CROSS_CURRENCY_TRANSFERS', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Transaction Limits
     |--------------------------------------------------------------------------
     |
@@ -92,13 +105,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Export Settings
+    | Export & Report Settings
     |--------------------------------------------------------------------------
     |
     | Configuration for PDF and Excel exports.
     |
     */
     'exports' => [
+        'storage_path' => env('FUNDRY_REPORTS_STORAGE_PATH', null),
         'pdf' => [
             'orientation' => 'portrait',
             'paper' => 'a4',
