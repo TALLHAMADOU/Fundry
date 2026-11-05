@@ -6,29 +6,24 @@ use Hamadou\Fundry\Tests\TestCase;
 use Hamadou\Fundry\Facades\Fundry;
 use Hamadou\Fundry\Models\Wallet;
 use Hamadou\Fundry\Models\Currency;
+use Hamadou\Fundry\Models\Country;
 use Hamadou\Fundry\DTOs\DepositDTO;
 use Hamadou\Fundry\DTOs\TransferDTO;
 use Hamadou\Fundry\Enums\WalletType;
 use Hamadou\Fundry\Enums\CurrencyType;
+use Hamadou\Fundry\Seeders\FundrySeeder;
+use Hamadou\Fundry\Utils\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
 
 class WalletOperationsTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        // La table users est créée dans TestCase::setUp()
-    }
 
     public function test_complete_wallet_workflow()
     {
         $user = $this->createUser();
         $currency = $this->createCurrency();
 
-        // 1. Créer un wallet
         $wallet = Fundry::createWallet($user, [
             'currency_id' => $currency->id,
             'name' => 'Main Wallet',
@@ -39,7 +34,6 @@ class WalletOperationsTest extends TestCase
         $this->assertInstanceOf(Wallet::class, $wallet);
         $this->assertEquals(0, $wallet->balance);
 
-        // 2. Effectuer un dépôt
         $dto = new DepositDTO(
             userId: $user->id,
             walletId: $wallet->id,
@@ -53,7 +47,6 @@ class WalletOperationsTest extends TestCase
         $this->assertEquals(1000.00, $wallet->balance);
         $this->assertNotNull($transaction);
 
-        // 3. Vérifier le solde
         $balance = Fundry::getWalletBalance($wallet);
         $this->assertEquals(1000.00, $balance);
     }
@@ -93,6 +86,31 @@ class WalletOperationsTest extends TestCase
         $this->assertEquals(500.00, $wallet1->balance);
         $this->assertEquals(500.00, $wallet2->balance);
         $this->assertNotNull($transaction);
+    }
+
+    public function test_seeders_and_artisan_commands_work_end_to_end()
+    {
+        (new FundrySeeder())->run();
+
+        $this->assertGreaterThan(10, Country::count());
+        $this->assertGreaterThan(10, Currency::count());
+        $this->assertNotNull(Currency::findByIsoCode('USDT'));
+
+        $this->artisan('fundry:sync-countries')->assertExitCode(0);
+        $this->artisan('fundry:currencies', ['action' => 'list'])->assertExitCode(0);
+        $this->artisan('fundry:currencies', ['action' => 'clear-cache'])->assertExitCode(0);
+        $this->artisan('fundry:cash', ['action' => 'stats'])->assertExitCode(0);
+        $this->artisan('fundry:crypto', ['action' => 'list'])->assertExitCode(0);
+        $this->artisan('fundry:validate-currencies')->assertExitCode(0);
+    }
+
+    public function test_money_bcmath_precision()
+    {
+        $this->assertEquals(1999, Money::toCents(19.99, 2));
+        $this->assertEquals(19.99, Money::fromCents(1999, 2));
+        $this->assertEquals(0.3, Money::add(0.1, 0.2, 8));
+        $this->assertTrue(Money::hasValidScale(0.00000001, 8));
+        $this->assertFalse(Money::hasValidScale(0.123456789, 8));
     }
 
     protected function createUser()
