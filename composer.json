@@ -1,6 +1,23 @@
 {
     "name": "hamadou/fundry",
-    "description": "Fundry — simple wallet & funds management for Laravel",
+    "description": "Fundry — Complete multi-currency wallet, funds, and financial transaction management for Laravel",
+    "keywords": [
+        "laravel",
+        "wallet",
+        "e-wallet",
+        "virtual-wallet",
+        "funds",
+        "payment",
+        "fintech",
+        "transactions",
+        "multi-currency",
+        "crypto",
+        "fiat",
+        "exchange-rate",
+        "ledger",
+        "bcmath",
+        "fundry"
+    ],
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -24,9 +41,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Hamadou\\Fundry\\": "src/"
+            "Hamadou\\Fundry\\": "src/",
+            "Hamadou\\Fundry\\Seeders\\": "Seeders/"
         },
-        "files": ["helpers.php"]
+        "files": [
+            "helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -52,7 +72,6 @@
     "scripts": {
         "test": "vendor/bin/phpunit",
         "test-coverage": "vendor/bin/phpunit --coverage-html coverage",
-        "analyse": "vendor/bin/phpstan analyse",
         "post-autoload-dump": [
             "@php ./vendor/bin/testbench package:discover --ansi"
         ]
