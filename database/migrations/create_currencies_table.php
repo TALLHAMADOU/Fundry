@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('currencies', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('country_id')->nullable()->after('id')->constrained('countries')->onDelete('set null');
+            $table->foreignId('country_id')->nullable()->constrained('countries')->onDelete('set null');
             $table->string('name');
             $table->string('code', 10)->unique();
-            $table->string('iso_code', 3)->unique(); // Code ISO 4217 standardisé
+            $table->string('iso_code', 10)->unique(); // Code ISO 4217 (3 lettres pour fiat) ou ticker crypto (ex: USDT)
             $table->string('type'); // fiat, crypto, device
             $table->string('symbol', 10);
             $table->decimal('exchange_rate', 20, 10)->default(1.0);
