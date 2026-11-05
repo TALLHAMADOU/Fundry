@@ -2,6 +2,8 @@
 
 namespace Hamadou\Fundry\DTOs;
 
+use Hamadou\Fundry\Utils\Money;
+
 class WithdrawalDTO
 {
     public function __construct(
@@ -34,11 +36,11 @@ class WithdrawalDTO
      */
     public function getTotalAmount(): float
     {
-        if ($this->commissionPercentage === null || $this->commissionPercentage === 0) {
+        if ($this->commissionPercentage === null || $this->commissionPercentage == 0) {
             return $this->amount;
         }
 
-        return $this->amount + $this->getCommissionAmount();
+        return Money::add($this->amount, $this->getCommissionAmount());
     }
 
     /**
@@ -46,11 +48,12 @@ class WithdrawalDTO
      */
     public function getCommissionAmount(): float
     {
-        if ($this->commissionPercentage === null || $this->commissionPercentage === 0) {
-            return 0;
+        if ($this->commissionPercentage === null || $this->commissionPercentage == 0) {
+            return 0.0;
         }
 
-        return $this->amount * ($this->commissionPercentage / 100);
+        $rate = Money::div($this->commissionPercentage, 100, 10);
+        return Money::mul($this->amount, $rate);
     }
 
     /**
@@ -60,11 +63,11 @@ class WithdrawalDTO
     {
         return new self(
             userId: $data['user_id'] ?? $data['userId'],
-            walletId: $data['wallet_id'] ?? $data['walletId'],
+            walletId: (int) ($data['wallet_id'] ?? $data['walletId']),
             amount: (float) $data['amount'],
             description: $data['description'] ?? null,
-            commissionPercentage: isset($data['commission_percentage']) || isset($data['commissionPercentage']) 
-                ? (float) ($data['commission_percentage'] ?? $data['commissionPercentage']) 
+            commissionPercentage: isset($data['commission_percentage']) || isset($data['commissionPercentage'])
+                ? (float) ($data['commission_percentage'] ?? $data['commissionPercentage'])
                 : null,
             metadata: $data['metadata'] ?? null
         );

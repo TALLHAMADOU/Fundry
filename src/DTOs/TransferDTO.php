@@ -2,6 +2,8 @@
 
 namespace Hamadou\Fundry\DTOs;
 
+use Hamadou\Fundry\Utils\Money;
+
 class TransferDTO
 {
     public function __construct(
@@ -11,7 +13,8 @@ class TransferDTO
         public readonly float $amount,
         public readonly ?string $description = null,
         public readonly ?float $commissionPercentage = null,
-        public readonly ?array $metadata = null
+        public readonly ?array $metadata = null,
+        public readonly ?bool $allowCrossCurrency = null
     ) {
         $this->validate();
     }
@@ -39,23 +42,19 @@ class TransferDTO
      */
     public function getTotalAmount(): float
     {
-        if ($this->commissionPercentage === null || $this->commissionPercentage === 0) {
+        if ($this->commissionPercentage === null || $this->commissionPercentage == 0) {
             return $this->amount;
         }
 
-        return $this->amount + $this->getCommissionAmount();
+        return Money::add($this->amount, $this->getCommissionAmount());
     }
 
     /**
-     * Calcule le montant net crédité sur le portefeuille destination (montant - commission)
+     * Calcule le montant net crédité sur le portefeuille destination (les frais étant à la charge de l'expéditeur)
      */
     public function getNetAmount(): float
     {
-        if ($this->commissionPercentage === null || $this->commissionPercentage === 0) {
-            return $this->amount;
-        }
-
-        return $this->amount - $this->getCommissionAmount();
+        return $this->amount;
     }
 
     /**
@@ -63,11 +62,12 @@ class TransferDTO
      */
     public function getCommissionAmount(): float
     {
-        if ($this->commissionPercentage === null || $this->commissionPercentage === 0) {
-            return 0;
+        if ($this->commissionPercentage === null || $this->commissionPercentage == 0) {
+            return 0.0;
         }
 
-        return $this->amount * ($this->commissionPercentage / 100);
+        $rate = Money::div($this->commissionPercentage, 100, 10);
+        return Money::mul($this->amount, $rate);
     }
 
     /**
@@ -77,14 +77,17 @@ class TransferDTO
     {
         return new self(
             userId: $data['user_id'] ?? $data['userId'],
-            fromWalletId: $data['from_wallet_id'] ?? $data['fromWalletId'],
-            toWalletId: $data['to_wallet_id'] ?? $data['toWalletId'],
+            fromWalletId: (int) ($data['from_wallet_id'] ?? $data['fromWalletId']),
+            toWalletId: (int) ($data['to_wallet_id'] ?? $data['toWalletId']),
             amount: (float) $data['amount'],
             description: $data['description'] ?? null,
-            commissionPercentage: isset($data['commission_percentage']) || isset($data['commissionPercentage']) 
-                ? (float) ($data['commission_percentage'] ?? $data['commissionPercentage']) 
+            commissionPercentage: isset($data['commission_percentage']) || isset($data['commissionPercentage'])
+                ? (float) ($data['commission_percentage'] ?? $data['commissionPercentage'])
                 : null,
-            metadata: $data['metadata'] ?? null
+            metadata: $data['metadata'] ?? null,
+            allowCrossCurrency: isset($data['allow_cross_currency']) || isset($data['allowCrossCurrency'])
+                ? (bool) ($data['allow_cross_currency'] ?? $data['allowCrossCurrency'])
+                : null
         );
     }
 
@@ -103,6 +106,7 @@ class TransferDTO
             'commission_amount' => $this->getCommissionAmount(),
             'total_amount' => $this->getTotalAmount(),
             'net_amount' => $this->getNetAmount(),
+            'allow_cross_currency' => $this->allowCrossCurrency,
             'metadata' => $this->metadata,
         ];
     }
