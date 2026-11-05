@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Hamadou\Fundry\Enums\WalletType;
+use Hamadou\Fundry\Utils\Money;
 
 class Wallet extends Model
 {
@@ -79,23 +80,42 @@ class Wallet extends Model
     }
 
     // Méthodes métier
+    public function canDeposit($amount): bool
+    {
+        if ($this->is_active === false || $this->is_active === 0 || (float) $amount <= 0) {
+            return false;
+        }
+
+        if ($this->max_balance !== null && (float) $this->max_balance > 0) {
+            $projected = Money::add($this->balance ?? 0, $amount);
+            if (Money::comp($projected, $this->max_balance) > 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function canWithdraw($amount): bool
     {
         $balance = (float) $this->balance;
         $amount = (float) $amount;
 
         $isActive = $this->is_active;
-        if ($isActive === false || $isActive === 0 || $balance < $amount) {
+        if ($isActive === false || $isActive === 0 || $amount <= 0 || Money::comp($balance, $amount) < 0) {
             return false;
         }
 
         $minBalance = $this->min_balance !== null ? (float) $this->min_balance : null;
-        if ($minBalance !== null && $minBalance > 0 && ($balance - $amount) < $minBalance) {
-            return false;
+        if ($minBalance !== null && $minBalance > 0) {
+            $remaining = Money::sub($balance, $amount);
+            if (Money::comp($remaining, $minBalance) < 0) {
+                return false;
+            }
         }
 
         $txLimit = $this->transaction_limit !== null ? (float) $this->transaction_limit : null;
-        if ($txLimit !== null && $txLimit > 0 && $amount > $txLimit) {
+        if ($txLimit !== null && $txLimit > 0 && Money::comp($amount, $txLimit) > 0) {
             return false;
         }
 
@@ -128,6 +148,6 @@ class Wallet extends Model
     public function belongsToUser($user): bool
     {
         $userId = is_object($user) ? $user->id : $user;
-        return $this->user_id == $userId;
+        return (string) $this->user_id === (string) $userId;
     }
 }

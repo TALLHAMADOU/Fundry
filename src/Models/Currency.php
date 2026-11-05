@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Hamadou\Fundry\Enums\CurrencyType;
 use Hamadou\Fundry\Exceptions\InvalidCurrencyException;
+use Hamadou\Fundry\Utils\Money;
 
 class Currency extends Model
 {
@@ -32,6 +33,7 @@ class Currency extends Model
     protected $casts = [
         'type' => CurrencyType::class,
         'exchange_rate' => 'decimal:10',
+        'base_currency' => 'boolean',
         'is_active' => 'boolean',
         'metadata' => 'array',
         'decimals' => 'integer',
@@ -42,16 +44,22 @@ class Currency extends Model
         parent::boot();
 
         static::creating(function ($currency) {
-            // Normaliser le code ISO en majuscules
             if (isset($currency->iso_code)) {
                 $currency->iso_code = strtoupper($currency->iso_code);
             }
             if (isset($currency->code)) {
                 $currency->code = strtoupper($currency->code);
             }
+            if (empty($currency->iso_code) && !empty($currency->code)) {
+                $currency->iso_code = $currency->code;
+            }
+
+            $type = $currency->type instanceof CurrencyType
+                ? $currency->type
+                : CurrencyType::tryFrom((string) $currency->type);
 
             // Valider le code ISO 4217 pour les devises fiat
-            if ($currency->type === CurrencyType::FIAT && isset($currency->iso_code)) {
+            if ($type === CurrencyType::FIAT && isset($currency->iso_code)) {
                 if (!self::isValidIso4217Code($currency->iso_code)) {
                     throw new InvalidCurrencyException("Le code ISO 4217 '{$currency->iso_code}' n'est pas valide");
                 }
@@ -59,7 +67,6 @@ class Currency extends Model
         });
 
         static::updating(function ($currency) {
-            // Normaliser le code ISO en majuscules
             if ($currency->isDirty('iso_code')) {
                 $currency->iso_code = strtoupper($currency->iso_code);
             }
@@ -69,12 +76,15 @@ class Currency extends Model
         });
 
         static::saved(function ($currency) {
-            // Nettoyer le cache après sauvegarde
             if (config('fundry.cache.enabled', true)) {
                 $prefix = config('fundry.cache.prefix', 'fundry');
-                \Illuminate\Support\Facades\Cache::forget("{$prefix}.currency." . strtoupper($currency->iso_code ?? $currency->code));
+                $code = strtoupper($currency->iso_code ?? $currency->code ?? '');
+                if ($code !== '') {
+                    \Illuminate\Support\Facades\Cache::forget("{$prefix}.currency.{$code}");
+                }
                 \Illuminate\Support\Facades\Cache::forget("{$prefix}.currencies.supported");
-                \Illuminate\Support\Facades\Cache::forget("{$prefix}.currencies.type.{$currency->type->value}");
+                $typeValue = $currency->type instanceof CurrencyType ? $currency->type->value : (string) $currency->type;
+                \Illuminate\Support\Facades\Cache::forget("{$prefix}.currencies.type.{$typeValue}");
             }
         });
     }
@@ -118,31 +128,47 @@ class Currency extends Model
         return $query->where('is_active', true);
     }
 
+    /**
+     * Calcule le taux de change relatif vers une devise cible
+     */
+    public function getExchangeRateTo(Currency $targetCurrency): float
+    {
+        if ($this->id === $targetCurrency->id) {
+            return 1.0;
+        }
+
+        return Money::div($this->exchange_rate, $targetCurrency->exchange_rate, 10);
+    }
+
     // Méthodes de conversion
     public function convertTo($amount, Currency $targetCurrency): float
     {
         if ($this->id === $targetCurrency->id) {
-            return $amount;
+            return (float) $amount;
         }
 
-        $amountInUsd = $amount * $this->exchange_rate;
-        return $amountInUsd / $targetCurrency->exchange_rate;
+        $amountInUsd = Money::mul($amount, $this->exchange_rate, 10);
+        return Money::div($amountInUsd, $targetCurrency->exchange_rate, 10);
     }
 
     public function getValueInUsd($amount): float
     {
-        return $amount * $this->exchange_rate;
+        return Money::mul($amount, $this->exchange_rate, 8);
     }
 
     public function getValueInEur($amount): float
     {
-        $eur = self::where('code', 'EUR')->first();
+        $eur = self::where('iso_code', 'EUR')->orWhere('code', 'EUR')->first();
+        if (!$eur) {
+            throw new InvalidCurrencyException("La devise EUR n'est pas configurée");
+        }
+
         return $this->convertTo($amount, $eur);
     }
 
     public function getFormattedAmount($amount): string
     {
-        return number_format($amount, $this->decimals) . ' ' . $this->symbol;
+        return number_format((float) $amount, $this->decimals ?? 2) . ' ' . $this->symbol;
     }
 
     /**
@@ -150,7 +176,6 @@ class Currency extends Model
      */
     public static function isValidIso4217Code(string $code): bool
     {
-        // Format ISO 4217 : 3 lettres majuscules
         return preg_match('/^[A-Z]{3}$/', strtoupper($code)) === 1;
     }
 
@@ -159,15 +184,17 @@ class Currency extends Model
      */
     public static function findByIsoCode(string $isoCode): ?self
     {
+        $normalized = strtoupper($isoCode);
+
         if (!config('fundry.cache.enabled', true)) {
-            return self::where('iso_code', strtoupper($isoCode))->first();
+            return self::where('iso_code', $normalized)->orWhere('code', $normalized)->first();
         }
 
-        $cacheKey = config('fundry.cache.prefix', 'fundry') . '.currency.' . strtoupper($isoCode);
+        $cacheKey = config('fundry.cache.prefix', 'fundry') . '.currency.' . $normalized;
         $ttl = config('fundry.cache.ttl', 3600);
 
-        return \Illuminate\Support\Facades\Cache::remember($cacheKey, $ttl, function () use ($isoCode) {
-            return self::where('iso_code', strtoupper($isoCode))->first();
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, $ttl, function () use ($normalized) {
+            return self::where('iso_code', $normalized)->orWhere('code', $normalized)->first();
         });
     }
 
@@ -176,13 +203,11 @@ class Currency extends Model
      */
     public function canConvertTo(Currency $targetCurrency): bool
     {
-        // Vérifier que les deux devises sont actives
         if (!$this->is_active || !$targetCurrency->is_active) {
             return false;
         }
 
-        // Vérifier que les taux de change sont valides
-        if ($this->exchange_rate <= 0 || $targetCurrency->exchange_rate <= 0) {
+        if ((float) $this->exchange_rate <= 0 || (float) $targetCurrency->exchange_rate <= 0) {
             return false;
         }
 

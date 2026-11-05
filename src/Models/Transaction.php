@@ -112,7 +112,7 @@ class Transaction extends Model
         ]);
     }
 
-    public function markAsFailed(string $reason = null): void
+    public function markAsFailed(?string $reason = null): void
     {
         $this->update([
             'status' => TransactionStatus::FAILED,
@@ -126,9 +126,24 @@ class Transaction extends Model
         return $this->type->isPositive();
     }
 
-    public function getFormattedAmount(): string
+    /**
+     * Indique si la transaction crédite (+) ou débite (-) un portefeuille donné.
+     */
+    public function isPositiveForWallet(Wallet|int $wallet): bool
     {
-        $sign = $this->isPositive() ? '+' : '-';
-        return $sign . $this->currency->getFormattedAmount(abs($this->amount));
+        $walletId = $wallet instanceof Wallet ? $wallet->id : $wallet;
+
+        if ($this->type === TransactionType::TRANSFER) {
+            return (int) $this->to_wallet_id === (int) $walletId;
+        }
+
+        return $this->isPositive();
+    }
+
+    public function getFormattedAmount(?Wallet $forWallet = null): string
+    {
+        $positive = $forWallet ? $this->isPositiveForWallet($forWallet) : $this->isPositive();
+        $sign = $positive ? '+' : '-';
+        return $sign . $this->currency->getFormattedAmount(abs((float) $this->amount));
     }
 }
