@@ -73,5 +73,7 @@ class FundryServiceProvider extends ServiceProvider
             "{$migrationsPath}/create_wallets_table.php",
             "{$migrationsPath}/create_transactions_table.php",
         ]);
+
+        $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'fundry');
     }
 }

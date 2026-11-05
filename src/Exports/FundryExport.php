@@ -15,7 +15,6 @@ class FundryExport implements FromCollection, WithHeadings, WithMapping, ShouldA
 
     public function __construct($data, string $type = 'transactions')
     {
-        // s'assurer d'avoir une Collection
         $this->data = $data instanceof Collection ? $data : collect($data);
         $this->type = $type;
     }
@@ -38,36 +37,51 @@ class FundryExport implements FromCollection, WithHeadings, WithMapping, ShouldA
      */
     public function map($row): array
     {
-        // Adapter le mapping selon $this->type
         if ($this->type === 'wallets') {
+            $type = $row->type ?? null;
             return [
                 $row->id ?? null,
                 $row->user_id ?? null,
+                $row->name ?? null,
+                $type instanceof \BackedEnum ? $type->value : $type,
                 $row->balance ?? ($row->balance_cents ?? null),
-                $row->currency->code ?? ($row->currency_code ?? null),
+                $row->currency->iso_code ?? ($row->currency->code ?? ($row->currency_code ?? null)),
                 $row->created_at ?? null,
             ];
         }
 
         if ($this->type === 'currencies') {
+            $type = $row->type ?? null;
             return [
                 $row->id ?? null,
-                $row->code ?? null,
+                $row->iso_code ?? ($row->code ?? null),
                 $row->name ?? null,
+                $type instanceof \BackedEnum ? $type->value : $type,
                 $row->exchange_rate ?? null,
             ];
         }
 
-        // par défaut : transactions
+        if ($this->type === 'limits') {
+            $item = is_array($row) ? $row : (array) $row;
+            return [
+                $item['type'] ?? null,
+                $item['limit'] ?? ($item['daily_limit'] ?? 0),
+            ];
+        }
+
+        $type = $row->type ?? null;
+        $status = $row->status ?? null;
+
         return [
             $row->id ?? null,
+            $row->reference ?? null,
             $row->user_id ?? null,
             $row->from_wallet_id ?? null,
             $row->to_wallet_id ?? null,
             $row->amount ?? ($row->amount_cents ?? null),
-            $row->currency->code ?? ($row->currency_code ?? null),
-            $row->type ?? null,
-            $row->status ?? null,
+            $row->currency->iso_code ?? ($row->currency->code ?? ($row->currency_code ?? null)),
+            $type instanceof \BackedEnum ? $type->value : $type,
+            $status instanceof \BackedEnum ? $status->value : $status,
             $row->created_at ?? null,
         ];
     }
@@ -79,10 +93,11 @@ class FundryExport implements FromCollection, WithHeadings, WithMapping, ShouldA
      */
     public function headings(): array
     {
-        return match($this->type) {
-            'wallets' => ['id', 'user_id', 'balance', 'currency', 'created_at'],
-            'currencies' => ['id', 'code', 'name', 'exchange_rate'],
-            default => ['id', 'user_id', 'from_wallet_id', 'to_wallet_id', 'amount', 'currency', 'type', 'status', 'created_at'],
+        return match ($this->type) {
+            'wallets' => ['id', 'user_id', 'name', 'type', 'balance', 'currency', 'created_at'],
+            'currencies' => ['id', 'code', 'name', 'type', 'exchange_rate'],
+            'limits' => ['type', 'limit'],
+            default => ['id', 'reference', 'user_id', 'from_wallet_id', 'to_wallet_id', 'amount', 'currency', 'type', 'status', 'created_at'],
         };
     }
 }
