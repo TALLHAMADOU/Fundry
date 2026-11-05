@@ -43,7 +43,8 @@ class TransferDTOTest extends TestCase
             commissionPercentage: 1.5
         );
 
-        $this->assertEquals(985.00, $dto->getNetAmount());
+        // Option A : les frais sont à la charge de l'expéditeur (1015 débité, 1000 crédité)
+        $this->assertEquals(1000.00, $dto->getNetAmount());
     }
 
     public function test_calculates_commission_amount_correctly()

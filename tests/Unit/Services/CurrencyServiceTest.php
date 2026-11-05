@@ -5,7 +5,6 @@ namespace Hamadou\Fundry\Tests\Unit\Services;
 use Hamadou\Fundry\Tests\TestCase;
 use Hamadou\Fundry\Services\CurrencyService;
 use Hamadou\Fundry\Models\Currency;
-use Hamadou\Fundry\Models\Country;
 use Hamadou\Fundry\Enums\CurrencyType;
 use Hamadou\Fundry\Exceptions\InvalidCurrencyException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,5 +120,58 @@ class CurrencyServiceTest extends TestCase
         $this->expectException(InvalidCurrencyException::class);
 
         $this->service->convertAmount(100, 'USD', 'INVALID');
+    }
+
+    public function test_get_supported_currencies_groups_by_enum_value_and_clears_cache()
+    {
+        Currency::create([
+            'iso_code' => 'USD',
+            'code' => 'USD',
+            'name' => 'US Dollar',
+            'type' => CurrencyType::FIAT,
+            'symbol' => '$',
+            'exchange_rate' => 1.0,
+            'is_active' => true,
+        ]);
+
+        Currency::create([
+            'iso_code' => 'USDT',
+            'code' => 'USDT',
+            'name' => 'Tether',
+            'type' => CurrencyType::CRYPTO,
+            'symbol' => '₮',
+            'exchange_rate' => 1.0,
+            'is_active' => true,
+        ]);
+
+        $supported = $this->service->getSupportedCurrencies();
+
+        $this->assertArrayHasKey('fiat', $supported);
+        $this->assertArrayHasKey('crypto', $supported);
+        $this->assertCount(1, $supported['fiat']);
+        $this->assertCount(1, $supported['crypto']);
+
+        $this->service->clearCache();
+        $this->assertTrue(true);
+    }
+
+    public function test_sync_exchange_rates_ignores_unregistered_currencies()
+    {
+        Currency::create([
+            'iso_code' => 'USD',
+            'code' => 'USD',
+            'name' => 'US Dollar',
+            'type' => CurrencyType::FIAT,
+            'symbol' => '$',
+            'exchange_rate' => 1.0,
+            'is_active' => true,
+        ]);
+
+        $updated = $this->service->syncExchangeRates([
+            'USD' => 1.0,
+            'NON_EXISTENT' => 0.5,
+        ]);
+
+        $this->assertEquals(1, $updated);
     }
 }

@@ -6,11 +6,12 @@ use Hamadou\Fundry\Tests\TestCase;
 use Hamadou\Fundry\Services\WalletService;
 use Hamadou\Fundry\Models\Wallet;
 use Hamadou\Fundry\Models\Currency;
-use Hamadou\Fundry\Models\Country;
+use Hamadou\Fundry\DTOs\TransferDTO;
 use Hamadou\Fundry\Enums\WalletType;
 use Hamadou\Fundry\Enums\CurrencyType;
 use Hamadou\Fundry\Exceptions\InsufficientFundsException;
 use Hamadou\Fundry\Exceptions\InvalidAmountException;
+use Hamadou\Fundry\Exceptions\InvalidCurrencyException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class WalletServiceTest extends TestCase
@@ -22,7 +23,6 @@ class WalletServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // La table users est créée dans TestCase::setUp()
         $this->service = app(WalletService::class);
     }
 
@@ -92,6 +92,71 @@ class WalletServiceTest extends TestCase
         $this->service->deposit($wallet, -100);
     }
 
+    public function test_transfer_with_commission_sender_pays_fee()
+    {
+        $user = $this->createUser();
+        $usd = $this->createCurrency();
+
+        $fromWallet = $this->createWallet(2000.00, ['user_id' => $user->id, 'currency_id' => $usd->id]);
+        $toWallet = $this->createWallet(0.00, ['user_id' => $user->id, 'currency_id' => $usd->id]);
+
+        $dto = new TransferDTO(
+            userId: $user->id,
+            fromWalletId: $fromWallet->id,
+            toWalletId: $toWallet->id,
+            amount: 1000.00,
+            commissionPercentage: 1.5
+        );
+
+        $transaction = $this->service->transferWithDTO($dto);
+
+        $fromWallet->refresh();
+        $toWallet->refresh();
+
+        $this->assertEquals(985.00, (float) $fromWallet->balance); // 2000 - 1015
+        $this->assertEquals(1000.00, (float) $toWallet->balance); // 0 + 1000
+        $this->assertEquals(1000.00, (float) $transaction->amount);
+        $this->assertEquals(15.00, $transaction->metadata['commission_amount']);
+    }
+
+    public function test_cross_currency_transfer_option_a_auto_converts()
+    {
+        config(['fundry.allow_cross_currency_transfers' => true]);
+
+        $user = $this->createUser();
+        $usd = $this->createCurrency(['iso_code' => 'USD', 'code' => 'USD', 'exchange_rate' => 1.0]);
+        $eur = $this->createCurrency(['iso_code' => 'EUR', 'code' => 'EUR', 'name' => 'Euro', 'symbol' => '€', 'exchange_rate' => 2.0]);
+
+        $usdWallet = $this->createWallet(1000.00, ['user_id' => $user->id, 'currency_id' => $usd->id]);
+        $eurWallet = $this->createWallet(0.00, ['user_id' => $user->id, 'currency_id' => $eur->id]);
+
+        $transaction = $this->service->transfer($usdWallet, $eurWallet, 200.00, 'USD to EUR');
+
+        $usdWallet->refresh();
+        $eurWallet->refresh();
+
+        $this->assertEquals(800.00, (float) $usdWallet->balance);
+        $this->assertEquals(100.00, (float) $eurWallet->balance); // 200 USD / 2.0 = 100 EUR
+        $this->assertEquals(100.00, (float) $transaction->converted_amount);
+        $this->assertEquals(0.5, (float) $transaction->exchange_rate);
+    }
+
+    public function test_cross_currency_transfer_option_b_blocks_when_disabled()
+    {
+        config(['fundry.allow_cross_currency_transfers' => false]);
+
+        $user = $this->createUser();
+        $usd = $this->createCurrency(['iso_code' => 'USD', 'code' => 'USD', 'exchange_rate' => 1.0]);
+        $eur = $this->createCurrency(['iso_code' => 'EUR', 'code' => 'EUR', 'name' => 'Euro', 'symbol' => '€', 'exchange_rate' => 1.1]);
+
+        $usdWallet = $this->createWallet(1000.00, ['user_id' => $user->id, 'currency_id' => $usd->id]);
+        $eurWallet = $this->createWallet(0.00, ['user_id' => $user->id, 'currency_id' => $eur->id]);
+
+        $this->expectException(InvalidCurrencyException::class);
+
+        $this->service->transfer($usdWallet, $eurWallet, 100.00);
+    }
+
     protected function createUser()
     {
         return \Hamadou\Fundry\Tests\Helpers\TestUser::create([
@@ -115,10 +180,10 @@ class WalletServiceTest extends TestCase
 
     protected function createWallet(float $balance = 0, array $attributes = [])
     {
-        $user = isset($attributes['user_id']) 
+        $user = isset($attributes['user_id'])
             ? \Hamadou\Fundry\Tests\Helpers\TestUser::find($attributes['user_id'])
             : $this->createUser();
-        
+
         $currency = $attributes['currency_id'] ?? $this->createCurrency()->id;
 
         return Wallet::create(array_merge([
